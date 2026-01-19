@@ -25,7 +25,7 @@ class GearWasher:
     def _wait_for_key(self):
         """等待按键确认坐标"""
         while True:
-             if keyboard.is_pressed('space'):
+             if keyboard.is_pressed('enter'):
                  # 防抖动
                  time.sleep(0.3)
                  return pyautogui.position()
@@ -47,7 +47,7 @@ class GearWasher:
         
         # 检查是否可以使用键盘触发
         if keyboard:
-            print("说明：将鼠标移动到目标位置，然后按下 【Space 空格键】 确认记录。")
+            print("说明：将鼠标移动到目标位置，然后按下 【Enter 回车键】 确认记录。")
             wait_func = self._wait_for_key
         else:
             print("提示：未安装 keyboard 库，将使用倒计时模式。")
