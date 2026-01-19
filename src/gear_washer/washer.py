@@ -32,12 +32,16 @@ class GearWasher:
              time.sleep(0.05)
 
     def _wait_for_limit(self):
-        """倒计时等待坐标"""
-        for i in range(3, 0, -1):
-            print(f"倒计时 {i}...", end="\r")
-            time.sleep(1)
-        print(" " * 20, end="\r") # 清除倒计时文字
-        return pyautogui.position()
+        """等待空格键记录坐标"""
+        import msvcrt
+        print("请按【空格键】确认记录...", end="", flush=True)
+        while True:
+            if msvcrt.kbhit():
+                key = msvcrt.getch()
+                if key == b' ':  # 空格键
+                    print("\r" + " " * 30 + "\r", end="", flush=True)  # 清除提示
+                    return pyautogui.position()
+            time.sleep(0.05)
 
     def setup_wizard(self):
         """
@@ -50,8 +54,9 @@ class GearWasher:
             print("说明：将鼠标移动到目标位置，然后按下 【Space 空格键】 确认记录。")
             wait_func = self._wait_for_key 
         else:
-            print("提示：未安装 keyboard 库，将使用倒计时模式。")
-            print("说明：无需按键，倒计时结束时会自动记录当前鼠标位置。")
+            print("警告：未安装 keyboard 库，将使用受限的空格键模式。")
+            print("说明：将鼠标移动到目标位置后，需要【切换回控制台窗口】，然后按【空格键】确认。")
+            print("建议：运行 'pip install keyboard' 以获得更好的体验（无需切换窗口）。")
             wait_func = self._wait_for_limit
         
         # 1. 设置装备悬停位置
@@ -102,10 +107,18 @@ class GearWasher:
         print("\n设置完成！")
 
     def _check_stop(self):
-        """检查是否有停止信号"""
+        """检查是否有停止信号（回车键）"""
+        import msvcrt
+        # 优先使用 keyboard 库检测 END 键
         if keyboard and keyboard.is_pressed('end'):
-            print("\n\n>>> Detected END key press. Stopping... <<<")
+            print("\n\n>>> 检测到 END 键，正在停止... <<<")
             return True
+        # 使用 msvcrt 检测回车键
+        if msvcrt.kbhit():
+            key = msvcrt.getch()
+            if key in (b'\r', b'\n'):  # 回车键
+                print("\n\n>>> 检测到回车键，正在停止... <<<")
+                return True
         return False
 
     def _smart_sleep(self, duration):
@@ -128,6 +141,7 @@ class GearWasher:
             return
 
         print(f"开始执行洗炼，最大尝试次数: {self.max_attempts}")
+        print("提示：按【回车键】可随时终止运行")
         print("请在该窗口激活游戏/应用，然后不要移动鼠标干扰操作...")
         
         # 启动等待也可以被打断
@@ -182,12 +196,15 @@ class GearWasher:
             
             # 4. 不满足，点击洗炼
             print("未匹配，继续洗炼...")
-            pyautogui.click(self.wash_button_pos[0], self.wash_button_pos[1])
+            # 先移动到洗炼按钮位置，再点击
+            pyautogui.moveTo(self.wash_button_pos[0], self.wash_button_pos[1], duration=0.2)
+            time.sleep(0.1)  # 稍微等待确保鼠标到位
+            pyautogui.click()  # 在当前位置点击
             
             # 5. 等待动画或刷新
             # 将原本的 sleep(self.interval) 换成智能等待
             if self._smart_sleep(self.interval):
-                print("\n\n>>> 用户按下 END 键，强制停止脚本。 <<<")
+                print("\n\n>>> 用户手动停止脚本。 <<<")
                 # 尝试通过 Windows API 弹窗提醒中止
                 try:
                     import ctypes

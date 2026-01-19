@@ -1,30 +1,15 @@
 from src.gear_washer.washer import GearWasher
 import sys
 import os
+from config.affix_config import MY_CONDITIONS  # 从词缀配置文件导入
+from config.position_config import CONFIG, USE_HARDCODED_CONFIG  # 从坐标配置文件导入
 
 # 配置区 (你可以在这里"写在代码中")
 # -----------------------------------------------------------------------------
 
-# 1. 词缀匹配条件
-# 支持以下语法：
-#   - 简单文本: "冰霜抗性"
-#   - 复杂逻辑: "冰霜 && (攻击速度 || 暴击率)"
-#   - 更复杂逻辑: "技能等级+3 && (抗性 || 血量)"
-MY_CONDITIONS = "冰霜 && (攻速 || 暴击)"
+# 1. 词缀匹配条件：已移至 config/affix_config.py 文件中配置
+# 2. 坐标配置：已移至 config/position_config.py 文件中配置
  
-# 2. 是否跳过向导直接使用硬编码坐标？
-# 如果你已经确定了坐标，可以将 USE_HARDCODED_CONFIG 设置为 True，并填写下面的坐标
-USE_HARDCODED_CONFIG = False
-
-CONFIG = {
-    # 词缀区域：现在支持直接填两个对角点 (点A, 点B)
-    # 系统会自动计算矩形范围，你可以填 (左上, 右下) 或者 (左下, 右上) 等任意对角
-    'affix_points': ((476, 241), (796, 531)), 
-    
-    'wash_button': (800, 600),             # (x, y)
-    'gear_pos': (400, 300)                 # (x, y)
-}
-
 # 3. Tesseract 路径
 # 优先使用当前目录下的 OCR，方便打包或迁移
 base_dir = os.path.dirname(os.path.abspath(__file__))
