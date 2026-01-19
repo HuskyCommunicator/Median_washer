@@ -25,7 +25,7 @@ class GearWasher:
     def _wait_for_key(self):
         """等待按键确认坐标"""
         while True:
-             if keyboard.is_pressed('enter'):
+             if keyboard.is_pressed('space'):
                  # 防抖动
                  time.sleep(0.3)
                  return pyautogui.position()
@@ -47,8 +47,8 @@ class GearWasher:
         
         # 检查是否可以使用键盘触发
         if keyboard:
-            print("说明：将鼠标移动到目标位置，然后按下 【Enter 回车键】 确认记录。")
-            wait_func = self._wait_for_key
+            print("说明：将鼠标移动到目标位置，然后按下 【Space 空格键】 确认记录。")
+            wait_func = self._wait_for_key 
         else:
             print("提示：未安装 keyboard 库，将使用倒计时模式。")
             print("说明：无需按键，倒计时结束时会自动记录当前鼠标位置。")
@@ -91,8 +91,6 @@ class GearWasher:
         print("\n[4/4] 设置目标词缀逻辑")
         # 4. 设置目标词缀
         print("\n[4/4] 设置目标词缀逻辑")
-        print("提示：支持复杂表达式，例如: 冰霜 || (火焰 && 攻速)")
-        
         raw_input = input("请输入目标词缀 (直接回车保持默认): ").strip()
         if raw_input:
             self.conditions = raw_input
@@ -100,7 +98,29 @@ class GearWasher:
             self.conditions = "冰霜抗性"
 
         print(f"当前匹配条件: {self.conditions}")
+
         print("\n设置完成！")
+
+    def _check_stop(self):
+        """检查是否有停止信号"""
+        if keyboard and keyboard.is_pressed('end'):
+            print("\n\n>>> Detected END key press. Stopping... <<<")
+            return True
+        return False
+
+    def _smart_sleep(self, duration):
+        """
+        智能等待：将长时间的 sleep 切割成小段，
+        期间不断检查由 _check_stop 定义的中止条件。
+        返回 True 表示被中止，False 表示等待完成。
+        """
+        start_time = time.time()
+        while time.time() - start_time < duration:
+            if self._check_stop():
+                return True
+            # 检测频率：每 0.05 秒检查一次
+            time.sleep(0.05)
+        return False
 
     def run(self):
         if not self.affix_region or not self.wash_button_pos or not self.gear_pos:
@@ -109,37 +129,54 @@ class GearWasher:
 
         print(f"开始执行洗炼，最大尝试次数: {self.max_attempts}")
         print("请在该窗口激活游戏/应用，然后不要移动鼠标干扰操作...")
-        time.sleep(3) # 给用户一点时间切换窗口
+        
+        # 启动等待也可以被打断
+        if self._smart_sleep(3): 
+            print("启动被打断。")
+            return
 
         for i in range(self.max_attempts):
+            # --- 阶段性检查 1 ---
+            if self._check_stop(): break
+
             print(f"\n--- 第 {i+1} 次尝试 ---")
             
             # 1. 移动到装备位置，显示浮窗
-            # 使用 moveTo 移动鼠标，duration 防止移动过快游戏未响应
             pyautogui.moveTo(self.gear_pos[0], self.gear_pos[1], duration=0.2)
-            # 等待浮窗显示
-            time.sleep(0.5) 
+            
+            # --- 阶段性检查 2 (移动后) ---
+            if self._check_stop(): break
+
+            # 等待浮窗显示 (使用智能等待替换 sleep)
+            if self._smart_sleep(0.5): break
 
             # 2. 识别当前属性
-            text = self.screen.read_text(self.affix_region)
+            # 文字识别通常比较耗时，识别前确认一下
+            if self._check_stop(): break
+            
+            try:
+                text = self.screen.read_text(self.affix_region)
+            except Exception as e:
+                print(f"识别出错: {e}")
+                text = ""
+
             clean_text = text.replace("\n", " | ")
             print(f"识别到的文本: {clean_text}")
+
+            # --- 阶段性检查 3 (识别后) ---
+            if self._check_stop(): break
 
             # 3. 判断是否满足条件
             if self.matcher.check(text, self.conditions):
                 print(">>> 成功匹配到目标属性！停止洗炼。 <<<")
                 
                 # 尝试强制前台并置顶
-                # 0x1000 (MB_SYSTEMMODAL) + 0x40000 (MB_TOPMOST)
                 import ctypes
                 try:
-                    # 先尝试让当前进程转到前台（有时候不生效，但值得一试）
                     ctypes.windll.user32.SwitchToThisWindow(ctypes.windll.kernel32.GetConsoleWindow(), 1)
                 except:
                     pass
                 
-                # 弹窗标志位：MB_ICONINFORMATION (0x40) | MB_SYSTEMMODAL (0x1000)
-                # SYSTEMMODAL 比 TOPMOST 更强，会强制所有窗口响应
                 ctypes.windll.user32.MessageBoxW(0, f'洗炼完成！\n已匹配到目标属性:\n{self.conditions}', '装备洗炼助手', 0x40 | 0x1000)
                 break
             
@@ -148,13 +185,16 @@ class GearWasher:
             pyautogui.click(self.wash_button_pos[0], self.wash_button_pos[1])
             
             # 5. 等待动画或刷新
-            time.sleep(self.interval)
-            
-            # --- 检测中止逻辑 ---
-            if keyboard and keyboard.is_pressed('f5'):
-                print("\n\n>>> 用户按下 F5，强制停止脚本。 <<<")
+            # 将原本的 sleep(self.interval) 换成智能等待
+            if self._smart_sleep(self.interval):
+                print("\n\n>>> 用户按下 END 键，强制停止脚本。 <<<")
+                # 尝试通过 Windows API 弹窗提醒中止
+                try:
+                    import ctypes
+                    ctypes.windll.user32.MessageBoxW(0, '用户手动中止洗炼。', '脚本停止', 0x40 | 0x1000)
+                except:
+                    pass
                 break
-            # --------------------
 
         else:
              print("已达到最大尝试次数，停止执行。")
