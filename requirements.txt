@@ -1,0 +1,6 @@
+pyautogui
+Pillow
+pytesseract
+pyyaml
+opencv-python
+pytest
