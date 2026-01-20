@@ -16,7 +16,7 @@ class ComplexRuleEditor(ctk.CTkToplevel):
         """
         super().__init__(parent)
         self.title("高级规则编辑器")
-        self.geometry("600x700")
+        self.geometry("600x500")
         
         # 强制置顶并聚焦
         self.lift() 

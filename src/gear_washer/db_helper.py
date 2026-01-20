@@ -133,6 +133,27 @@ class SimpleDB:
                 print(f"Error adding affix: {e}")
                 return False
 
+    def update_affix(self, affix_id, content, description):
+        """根据ID更新词缀内容和描述"""
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            try:
+                cursor.execute('''
+                    UPDATE affix 
+                    SET content = ?, description = ?
+                    WHERE id = ?
+                ''', (content, description, affix_id))
+                if cursor.rowcount == 0:
+                    return False
+                conn.commit()
+                return True
+            except sqlite3.IntegrityError:
+                print(f"Error: Content '{content}' already exists in another rule.")
+                return False
+            except Exception as e:
+                print(f"Error updating affix: {e}")
+                return False
+
     def get_all_affixes(self):
         """获取所有词缀"""
         with sqlite3.connect(self.db_path) as conn:
@@ -146,6 +167,35 @@ class SimpleDB:
             cursor = conn.cursor()
             cursor.execute('SELECT id, name FROM equipment_type ORDER BY id')
             return cursor.fetchall()
+            
+    def rename_equipment_type(self, type_id, new_name):
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            try:
+                cursor.execute('UPDATE equipment_type SET name = ? WHERE id = ?', (new_name, type_id))
+                conn.commit()
+                return True
+            except sqlite3.IntegrityError:
+                return False
+
+    def delete_equipment_type(self, type_id):
+        with sqlite3.connect(self.db_path) as conn:
+             cursor = conn.cursor()
+             cursor.execute('DELETE FROM equipment_type WHERE id = ?', (type_id,))
+             conn.commit()
+             
+    def rename_affix(self, affix_id, new_name):
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute('UPDATE affix SET description = ? WHERE id = ?', (new_name, affix_id))
+            conn.commit()
+            return True
+
+    def delete_affix(self, affix_id):
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute('DELETE FROM affix WHERE id = ?', (affix_id,))
+            conn.commit()
 
     def set(self, key, value):
         """保存数据，如果是dict/list/tuple/None会自动转换为json字符串"""
