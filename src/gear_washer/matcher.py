@@ -55,17 +55,63 @@ class AffixMatcher:
             
             # 计算当前组里有多少个词缀匹配上了
             matched_count = 0
-            for affix in affixes:
-                if not affix.strip(): continue # 忽略空行
-                kw = self.normalize_text(affix.strip())
-                if kw in raw_text:
-                    matched_count += 1
+            for affix_item in affixes:
+                # 兼容旧格式(str)和新格式(dict: {name: 'xxx', exact: true})
+                affix_str = ""
+                is_exact = False
+                
+                if isinstance(affix_item, dict):
+                    affix_str = affix_item.get('name', '')
+                    is_exact = affix_item.get('exact', False)
+                elif isinstance(affix_item, str):
+                    affix_str = affix_item
+                
+                if not affix_str.strip(): continue
+
+                kw_normalized = self.normalize_text(affix_str.strip())
+                
+                if is_exact:
+                    # 精准匹配逻辑：
+                    # 1. raw_text 已经是 normalize 过的（去标点、转小写）
+                    # 2. 我们按行分割 raw_text，或者其他分隔符
+                    # 因为 normalize_text 会移除标点，所以 "法术伤害" 和 "冰冻系法术伤害"
+                    # normalize 后可能是 "法术伤害" 和 "冰冻系法术伤害"
+                    # 如果 raw_text 是一大段连在一起的字，很难判定边界。
+                    # 但 OCR 结果往往包含换行符，normalize_text 并没有去除换行符，只是去除了标点 [^\w\s].
+                    # \s 包含了换行。
+                    
+                    found_exact = False
+                    # 假设 raw_text 里各个词缀之间有换行或空格分隔
+                    # 为了做精准匹配，我们需要更原始一点的分割，但这里传入的 raw_text 已经被 normalize 了
+                    # 所以我们尝试在 raw_text 中寻找边界。
+                    # 简单策略：如果原始文本是按行识别的，那么每一行就是一个词条。
+                    # 但这里 raw_text 已经是一整块字符串。
+                    # 我们尝试用 \s+ 分割
+                    words = re.split(r'\s+', raw_text)
+                    for w in words:
+                        if w == kw_normalized:
+                            found_exact = True
+                            break
+                    
+                    if found_exact:
+                        matched_count += 1
+                else:
+                    # 模糊匹配 (包含即可)
+                    if kw_normalized in raw_text:
+                        matched_count += 1
             
             # 根据类型判定
             if g_type == 'AND':
                 # AND: 必须全部存在
-                # 实际上 affixes 里所有词缀都必须找到
-                if matched_count < len([a for a in affixes if a.strip()]):
+                # 计算有效词缀总数 (需兼容 str 和 dict)
+                total_valid = 0
+                for a in affixes:
+                    if isinstance(a, str):
+                        if a.strip(): total_valid += 1
+                    elif isinstance(a, dict):
+                        if a.get('name', '').strip(): total_valid += 1
+                        
+                if matched_count < total_valid:
                     return False
                     
             elif g_type == 'NOT':
