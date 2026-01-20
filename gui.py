@@ -38,8 +38,14 @@ class App(ctk.CTk):
         # 数据库 & 洗炼核心
         self.db = SimpleDB()
         
-        # 获取 Tesseract 路径 (假设和 run_washer_v2.py 同级结构)
-        base_dir = os.path.dirname(os.path.abspath(__file__))
+        # 获取基础路径 (兼容 IDE 运行和打包后的 Exe)
+        if getattr(sys, 'frozen', False):
+            # 如果是打包后的 exe，sys.executable 指向 exe 文件所在目录
+            base_dir = os.path.dirname(sys.executable)
+        else:
+            # 如果是脚本运行
+            base_dir = os.path.dirname(os.path.abspath(__file__))
+
         self.ocr_path = os.path.join(base_dir, 'OCR', 'tesseract.exe')
         
         self.washer = None # 将在运行时实例化
