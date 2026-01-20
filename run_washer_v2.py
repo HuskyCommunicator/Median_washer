@@ -177,8 +177,6 @@ def main():
     if confirm == 'n':
         print("已取消。")
         return
-
-    print("启动中... 按 Ctrl+C 停止")
     washer.run()
 
 if __name__ == "__main__":
