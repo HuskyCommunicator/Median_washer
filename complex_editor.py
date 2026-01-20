@@ -1,6 +1,13 @@
 import customtkinter as ctk
 import json
 
+TYPE_MAP = {
+    "AND": "和",
+    "COUNT": "数量",
+    "NOT": "非"
+}
+REVERSE_TYPE_MAP = {v: k for k, v in TYPE_MAP.items()}
+
 class ComplexRuleEditor(ctk.CTkToplevel):
     def __init__(self, parent, initial_data=None, callback=None):
         """
@@ -65,44 +72,78 @@ class ComplexRuleEditor(ctk.CTkToplevel):
         group_frame = ctk.CTkFrame(self.scroll_frame, border_width=1, border_color="gray")
         group_frame.pack(fill="x", pady=5, padx=5)
         
-        # 顶部栏: 类型选择 + 数量限制 + 删除按钮
+        # 顶部栏
         header = ctk.CTkFrame(group_frame, fg_color="transparent")
         header.pack(fill="x", padx=5, pady=5)
         
+        # 逻辑类型
         lbl_type = ctk.CTkLabel(header, text="逻辑类型:")
         lbl_type.pack(side="left", padx=5)
         
-        type_var = ctk.StringVar(value=data.get("type", "AND"))
-        combo_type = ctk.CTkComboBox(header, values=["AND", "COUNT", "NOT"], variable=type_var, width=80)
+        initial_type_code = data.get("type", "AND")
+        initial_display = TYPE_MAP.get(initial_type_code, "和")
+        
+        type_var = ctk.StringVar(value=initial_display)
+        
+        # Min/Max 容器 (提前创建)
+        min_max_frame = ctk.CTkFrame(header, fg_color="transparent")
+
+        def on_type_change(choice):
+            if choice == "数量":
+                min_max_frame.pack(side="left", padx=5)
+            else:
+                min_max_frame.pack_forget()
+
+        combo_type = ctk.CTkComboBox(header, values=list(TYPE_MAP.values()), variable=type_var, width=80, command=on_type_change)
         combo_type.pack(side="left", padx=5)
         
-        # 数量限制区域 (仅 COUNT 模式有效，这里为了简单都显示，或者动态显示)
-        lbl_min = ctk.CTkLabel(header, text="Min:")
+        # 数量限制组件
+        lbl_min = ctk.CTkLabel(min_max_frame, text="Min:")
         lbl_min.pack(side="left", padx=2)
-        entry_min = ctk.CTkEntry(header, width=40, placeholder_text="0")
+        entry_min = ctk.CTkEntry(min_max_frame, width=40, placeholder_text="0")
         entry_min.pack(side="left", padx=2)
         if data.get("min") is not None: entry_min.insert(0, str(data.get("min")))
         
-        lbl_max = ctk.CTkLabel(header, text="Max:")
+        lbl_max = ctk.CTkLabel(min_max_frame, text="Max:")
         lbl_max.pack(side="left", padx=2)
-        entry_max = ctk.CTkEntry(header, width=40, placeholder_text="9")
+        entry_max = ctk.CTkEntry(min_max_frame, width=40, placeholder_text="9")
         entry_max.pack(side="left", padx=2)
         if data.get("max") is not None: entry_max.insert(0, str(data.get("max")))
+
+        # 初始化显示状态
+        on_type_change(initial_display)
 
         # 删除按钮
         btn_del = ctk.CTkButton(header, text="X", width=30, fg_color="red", command=lambda: self.remove_group(group_frame))
         btn_del.pack(side="right", padx=5)
 
-        # 词缀输入区
-        lbl_affix = ctk.CTkLabel(group_frame, text="词缀列表 (每行一条):")
-        lbl_affix.pack(anchor="w", padx=10)
+        # 分割线
+        sep = ctk.CTkFrame(group_frame, height=2, fg_color="gray")
+        sep.pack(fill="x", padx=5, pady=2)
+
+        # 词缀列表区域
+        lbl_affix = ctk.CTkLabel(group_frame, text="词缀列表:", font=("Microsoft YaHei", 12))
+        lbl_affix.pack(anchor="w", padx=10, pady=(5,0))
         
-        txt_affixes = ctk.CTkTextbox(group_frame, height=100)
-        txt_affixes.pack(fill="x", padx=10, pady=5)
+        affix_container = ctk.CTkFrame(group_frame, fg_color="transparent")
+        affix_container.pack(fill="x", padx=10, pady=5)
         
-        # 填充词缀
-        if "affixes" in data and isinstance(data["affixes"], list):
-            txt_affixes.insert("0.0", "\n".join(data["affixes"]))
+        affix_rows = []
+        
+        # 填充初始词缀
+        existing_affixes = data.get("affixes", [])
+        if existing_affixes and isinstance(existing_affixes, list):
+            for txt in existing_affixes:
+                self.add_affix_row(affix_container, affix_rows, txt)
+        
+        # 默认至少有一条，如果为空
+        if not affix_rows:
+            self.add_affix_row(affix_container, affix_rows, "")
+             
+        # 添加词缀按钮
+        btn_add_affix = ctk.CTkButton(group_frame, text="+ 添加词缀", height=24, fg_color="#444444", 
+                                      command=lambda: self.add_affix_row(affix_container, affix_rows))
+        btn_add_affix.pack(anchor="w", padx=10, pady=(0, 10))
 
         # 保存引用以便后续读取
         self.groups.append({
@@ -110,8 +151,31 @@ class ComplexRuleEditor(ctk.CTkToplevel):
             "type_var": type_var,
             "entry_min": entry_min,
             "entry_max": entry_max,
-            "txt_affixes": txt_affixes
+            "affix_rows": affix_rows
         })
+
+    def add_affix_row(self, container, rows_list, text=""):
+        row_frame = ctk.CTkFrame(container, fg_color="transparent")
+        row_frame.pack(fill="x", pady=2)
+        
+        entry = ctk.CTkEntry(row_frame, placeholder_text="输入词缀名称")
+        entry.pack(side="left", fill="x", expand=True, padx=(0, 5))
+        if text:
+            entry.insert(0, text)
+            
+        btn_del = ctk.CTkButton(row_frame, text="-", width=30, height=24, fg_color="darkred", 
+                                command=lambda: self.remove_affix_row(row_frame, rows_list))
+        btn_del.pack(side="right")
+        
+        rows_list.append({"frame": row_frame, "entry": entry})
+
+    def remove_affix_row(self, row_frame, rows_list):
+        row_frame.destroy()
+        # 从列表移除
+        for i, item in enumerate(rows_list):
+            if item["frame"] == row_frame:
+                del rows_list[i]
+                break
 
     def remove_group(self, frame):
         # 从 UI 移除
@@ -122,15 +186,19 @@ class ComplexRuleEditor(ctk.CTkToplevel):
     def save_data(self):
         result = []
         for g in self.groups:
-            g_type = g["type_var"].get()
+            display_type = g["type_var"].get()
+            g_type = REVERSE_TYPE_MAP.get(display_type, "AND")
             
             # 解析 min/max
             min_v = g["entry_min"].get().strip()
             max_v = g["entry_max"].get().strip()
             
             # 解析词缀
-            raw_affixes = g["txt_affixes"].get("0.0", "end").strip().split('\n')
-            affixes = [a.strip() for a in raw_affixes if a.strip()]
+            affixes = []
+            for row in g["affix_rows"]:
+                val = row["entry"].get().strip()
+                if val:
+                    affixes.append(val)
             
             item = {
                 "type": g_type,
