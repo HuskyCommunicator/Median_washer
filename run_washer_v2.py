@@ -2,7 +2,7 @@ from src.gear_washer.washer import GearWasher
 import sys
 import os
 import time
-from config.affix_config import MY_CONDITIONS as FILE_DEFAULT_CONDITIONS
+from config.affix_config import DEFAULT_CONFIGS
 from src.gear_washer.db_helper import SimpleDB
 
 # Tesseract 路径
@@ -32,78 +32,98 @@ def main():
     clear_screen()
     print("=== 第一步：选择物品类型 (位置配置) ===")
     
-    # 查找所有以 'preset_' 或 'item_' 开头的配置
-    # 兼容之前的 'preset_' 前缀
-    item_keys = db.list_keys("preset_") + db.list_keys("item_")
-    # 去重并去掉前缀显示
-    item_options = []
-    seen = set()
-    for k in item_keys:
-        if k in seen: continue
-        seen.add(k)
-        display_name = k.replace("preset_", "").replace("item_", "")
-        item_options.append((display_name, k))
+    # 从数据库的新表中获取列表
+    # item_options: list of (id, name)
+    item_options = db.list_equipment_types()
     
-    # 排序，保证顺序稳定
-    item_options.sort(key=lambda x: x[0])
-
     print("已有配置:")
-    for idx, (name, key) in enumerate(item_options):
+    for idx, (type_id, name) in enumerate(item_options):
         print(f"  [{idx + 1}] {name}")
     print(f"  [{len(item_options) + 1}] + 新建/手动定位")
     
     choice = input("\n请选择 (输入序号): ").strip()
     
-    selected_item_key = None
+    selected_type_id = None
     selected_item_name = None
+    pos_data = None
+    need_calibrate = False
     
     if choice.isdigit():
         idx = int(choice) - 1
         if 0 <= idx < len(item_options):
-            selected_item_name, selected_item_key = item_options[idx]
+            selected_type_id, selected_item_name = item_options[idx]
             print(f"已选择: {selected_item_name}")
-    
-    # ---------------------------------------------------------
-    # 第二步：使用位置 or 重新定位
-    # ---------------------------------------------------------
-    clear_screen()
-    print("=== 第二步：位置配置确认 ===")
-    
-    pos_data = None
-    need_calibrate = False
-    
-    if selected_item_key:
-        pos_data = db.get(selected_item_key)
-        if pos_data:
-            print(f"加载配置数据成功。")
-            re_cal = input("是否需要重新定位此物品? (y/n) [n]: ").strip().lower()
-            if re_cal == 'y':
+            
+            # 加载配置
+            cfg = db.get_equipment_type_by_id(selected_type_id)
+            if cfg:
+                pos_data = {
+                    'gear_pos': cfg['gear_pos'],
+                    'affix_points': cfg['affix_points']
+                }
+                # 尝试加载全局洗炼按钮位置
+                global_btn = db.get("global_wash_button_pos")
+                if global_btn:
+                    pos_data['wash_button'] = tuple(global_btn)
+                else:
+                    print("警告：未找到洗炼按钮位置，可能需要重新定位。")
+                    re_cal = input("是否需要重新定位此物品及按钮? (y/n) [n]: ").strip().lower()
+                    if re_cal == 'y':
+                        need_calibrate = True
+                    else:
+                        print("请务必确保已在别处设置过按钮位置，否则可能出错。")
+            else:
+                print("读取错误，需重新定位。")
                 need_calibrate = True
         else:
-            print("数据读取错误，需要重新定位。")
+            # 新建模式
+            print("您选择了新建配置。")
+            selected_item_name = input("请输入新物品的名称 (例如 '火法杖'): ").strip()
+            if not selected_item_name:
+                selected_item_name = f"Item_{int(time.time())}"
             need_calibrate = True
     else:
-        # 新建模式
+        # 默认新建
         print("您选择了新建配置。")
         selected_item_name = input("请输入新物品的名称 (例如 '火法杖'): ").strip()
         if not selected_item_name:
-            selected_item_name = f"Item_{int(time.time())}"
-        selected_item_key = f"preset_{selected_item_name}"
+                selected_item_name = f"Item_{int(time.time())}"
         need_calibrate = True
 
     if need_calibrate:
-        # 调用交互式定位
+        # 调用交互式定位，获取 装备位置、词缀区域、洗炼按钮
         pos_data = washer.calibrate_ui()
-        # 存储
-        db.set(selected_item_key, pos_data)
-        print(f"已将新位置保存为: [{selected_item_name}]")
+        
+        # 存入数据库
+        # 1. 存装备类型
+        db.save_equipment_type(
+            name=selected_item_name,
+            gear_pos=pos_data['gear_pos'],
+            affix_points=pos_data['affix_points']
+        )
+        # 2. 存全局按钮位置
+        db.set("global_wash_button_pos", pos_data['wash_button'])
+        
+        print(f"已保存配置: [{selected_item_name}] 及全局洗炼按钮位置。")
     
     # 应用位置配置
-    washer.gear_pos = pos_data['gear_pos']
-    washer.wash_button_pos = pos_data['wash_button']
-    # 计算 affix_region
-    p1, p2 = pos_data['affix_points']
-    washer.affix_region = calculate_rect(p1, p2)
+    if pos_data:
+        washer.gear_pos = pos_data['gear_pos']
+        # 确保有按钮位置
+        if 'wash_button' in pos_data:
+            washer.wash_button_pos = pos_data['wash_button']
+        else:
+            # 再次尝试获取全局
+            global_btn = db.get("global_wash_button_pos")
+            if global_btn:
+                washer.wash_button_pos = tuple(global_btn)
+            else:
+                print("错误：缺失洗炼按钮位置，请重新运行并新建配置以设定按钮。")
+                return
+
+        # 计算 affix_region
+        p1, p2 = pos_data['affix_points']
+        washer.affix_region = calculate_rect(p1, p2)
     
     # ---------------------------------------------------------
     # 第三步：选择词缀 (Affix)
@@ -111,55 +131,63 @@ def main():
     clear_screen()
     print("=== 第三步：选择洗炼词缀 ===")
     
-    affix_keys = db.list_keys("affix_")
-    affix_options = []
-    # 总是把配置文件作为第一个选项
-    print("  [1] 使用配置文件默认 (affix_config.py)")
-    print(f"      内容: {str(FILE_DEFAULT_CONDITIONS)[:40]}...")
+    # 从数据库的新Affix表中获取
+    affix_list = db.get_all_affixes()
     
-    for idx, k in enumerate(affix_keys):
-        name = k.replace("affix_", "")
-        val = db.get(k)
-        preview = str(val)[:20]
-        print(f"  [{idx + 2}] {name} (内容: {preview}...)")
-        affix_options.append((name, k, val))
+    # 构建所有选项列表: (display_name, content)
+    all_options = []
+    
+    # 1. 来自 config/affix_config.py 的默认配置
+    if DEFAULT_CONFIGS:
+        for name, cond in DEFAULT_CONFIGS.items():
+            all_options.append((f"[文件] {name}", cond))
+            
+    # 2. 来自数据库的配置
+    for aff_id, content, desc in affix_list:
+        display = desc if desc else f"词缀组_{aff_id}"
+        all_options.append((f"[DB] {display}", content))
+    
+    # 打印选项
+    for idx, (name, content) in enumerate(all_options):
+        print(f"  [{idx + 1}] {name} (内容: {str(content)[:30]}...)")
         
-    print(f"  [{len(affix_options) + 2}] + 手动输入新词缀")
+    print(f"  [{len(all_options) + 1}] + 手动输入新词缀")
 
     choice_aff = input("\n请选择 (输入序号): ").strip()
     
     final_conditions = None
     
-    if choice_aff == '1' or choice_aff == '':
-        final_conditions = FILE_DEFAULT_CONDITIONS
-        print("已使用配置文件默认词缀。")
-    elif choice_aff.isdigit():
-        idx = int(choice_aff) - 2 # 偏移量 (选项1是文件)
-        if 0 <= idx < len(affix_options):
-            name, key, val = affix_options[idx]
-            final_conditions = val
-            print(f"已选择预设词缀: {name}")
-        else:
-            # 手动输入 (fallthrough)
-            pass
+    if choice_aff.isdigit():
+        idx = int(choice_aff) - 1
+        if 0 <= idx < len(all_options):
+            final_conditions = all_options[idx][1]
+            print(f"已选择: {all_options[idx][0]}")
             
     if final_conditions is None:
-        # 手动输入模式
-        print("\n请输入目标词缀逻辑 (支持 &&, || 等):")
+        # 手动输入模式 (这里逻辑保持不变，只是入口变了)
+        print("\n请输入目标词缀逻辑 (支持 &&, || 等, 例如 '冰冻伤害 && 智力'):")
         raw_input = input("> ").strip()
         if raw_input:
             final_conditions = raw_input
             # 询问是否保存
             save_yn = input("是否保存此词缀为预设? (y/n) [y]: ").strip().lower()
             if save_yn != 'n':
-                preset_name = input("请输入预设名称 (例如 '冰法通用'): ").strip()
-                if not preset_name:
-                    preset_name = "未命名"
-                db.set(f"affix_{preset_name}", final_conditions)
-                print(f"已保存词缀预设: [{preset_name}]")
+                preset_desc = input("请输入预设描述名称 (例如 '冰法通用'): ").strip()
+                if not preset_desc:
+                    preset_desc = f"自定义_{int(time.time())}"
+                
+                # 保存到新表
+                db.add_affix(content=final_conditions, description=preset_desc)
+                print(f"已保存词缀预设: [{preset_desc}]")
         else:
-            print("未输入，将使用默认 '冰霜抗性' 防止报错")
-            final_conditions = "冰霜抗性"
+            # 如果也没输入，默认 fallback
+            # 如果 all_options 不为空，默认选第一个，否则给个硬编码默认
+            if all_options:
+                final_conditions = all_options[0][1]
+                print(f"未输入，自动选择第一个配置: {all_options[0][0]}")
+            else:
+                print("未输入，将使用系统硬编码 '冰霜抗性' 防止报错")
+                final_conditions = "冰霜抗性"
 
     washer.conditions = final_conditions
     
