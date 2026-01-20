@@ -43,11 +43,11 @@ class GearWasher:
                     return pyautogui.position()
             time.sleep(0.05)
 
-    def setup_wizard(self):
+    def calibrate_ui(self):
         """
-        交互式设置向导，辅助用户确定屏幕坐标
+        [新的] 交互式获取坐标配置，返回字典
         """
-        print("=== 装备洗炼脚本设置向导 ===")
+        print("=== 界面坐标校准模式 ===")
         
         # 检查是否可以使用键盘触发
         if keyboard:
@@ -55,18 +55,15 @@ class GearWasher:
             wait_func = self._wait_for_key 
         else:
             print("警告：未安装 keyboard 库，将使用受限的空格键模式。")
-            print("说明：将鼠标移动到目标位置后，需要【切换回控制台窗口】，然后按【空格键】确认。")
-            print("建议：运行 'pip install keyboard' 以获得更好的体验（无需切换窗口）。")
             wait_func = self._wait_for_limit
         
         # 1. 设置装备悬停位置
-        print("\n[1/4] 请将鼠标移动到【装备图标】上（用于触发属性浮窗）...")
+        print("\n[1/3] 请将鼠标移动到【装备图标】上（用于触发属性浮窗）...")
         gx, gy = wait_func()
-        self.gear_pos = (gx, gy)
-        print(f"记录装备位置: {self.gear_pos}")
+        print(f"记录装备位置: {(gx, gy)}")
 
         # 2. 设置词缀识别区域
-        print("\n[2/4] 即将设置词缀区域 (OCR范围)。")
+        print("\n[2/3] 即将设置词缀区域 (OCR范围)。")
         print("提示：请确保浮窗可见。")
         
         print("请将鼠标移动到【词缀文字区域】的【左上角】...")
@@ -77,23 +74,39 @@ class GearWasher:
         x2, y2 = wait_func()
         print(f"记录右下角: ({x2}, {y2})")
         
-        # 自动纠正左上/右下，防止用户选反
-        x = min(x1, x2)
-        y = min(y1, y2)
-        width = abs(x2 - x1)
-        height = abs(y2 - y1)
-        
-        self.affix_region = (x, y, width, height)
-        print(f"词缀区域已设置为: {self.affix_region}")
+        # 返回原始定义的两个对角点，方便存储和计算
+        p1 = (x1, y1)
+        p2 = (x2, y2)
 
         # 3. 设置洗炼按钮位置
-        print("\n[3/4] 请将鼠标移动到【洗炼按钮中心】...")
+        print("\n[3/3] 请将鼠标移动到【洗炼按钮中心】...")
         bx, by = wait_func()
-        self.wash_button_pos = (bx, by)
-        print(f"洗炼按钮位置已设置为: {self.wash_button_pos}")
+        print(f"洗炼按钮位置已设置为: {(bx, by)}")
+        
+        return {
+            "gear_pos": (gx, gy),
+            "affix_points": (p1, p2),
+            "wash_button": (bx, by)
+        }
+
+    def setup_wizard(self):
+        """
+        (旧版兼容) 交互式设置向导
+        """
+        data = self.calibrate_ui()
+        self.gear_pos = data['gear_pos']
+        # 兼容旧逻辑：立即计算矩形
+        p1, p2 = data['affix_points']
+        x = min(p1[0], p2[0])
+        y = min(p1[1], p2[1])
+        w = abs(p2[0] - p1[0])
+        h = abs(p2[1] - p1[1])
+        self.affix_region = (x, y, w, h)
+        self.wash_button_pos = data['wash_button']
 
         # 4. 设置目标词缀
         print("\n[4/4] 设置目标词缀逻辑")
+
         # 4. 设置目标词缀
         print("\n[4/4] 设置目标词缀逻辑")
         raw_input = input("请输入目标词缀 (直接回车保持默认): ").strip()
@@ -107,18 +120,11 @@ class GearWasher:
         print("\n设置完成！")
 
     def _check_stop(self):
-        """检查是否有停止信号（回车键）"""
-        import msvcrt
-        # 优先使用 keyboard 库检测 END 键
-        if keyboard and keyboard.is_pressed('end'):
-            print("\n\n>>> 检测到 END 键，正在停止... <<<")
+        """检查是否有停止信号（HOME键）"""
+        # 优先使用 keyboard 库检测 HOME 键
+        if keyboard and keyboard.is_pressed('home'):
+            print("\n\n>>> 检测到 HOME 键，正在停止... <<<")
             return True
-        # 使用 msvcrt 检测回车键
-        if msvcrt.kbhit():
-            key = msvcrt.getch()
-            if key in (b'\r', b'\n'):  # 回车键
-                print("\n\n>>> 检测到回车键，正在停止... <<<")
-                return True
         return False
 
     def _smart_sleep(self, duration):
@@ -141,7 +147,7 @@ class GearWasher:
             return
 
         print(f"开始执行洗炼，最大尝试次数: {self.max_attempts}")
-        print("提示：按【回车键】可随时终止运行")
+        print("提示：按【HOME键】可随时终止运行")
         print("请在该窗口激活游戏/应用，然后不要移动鼠标干扰操作...")
         
         # 启动等待也可以被打断
