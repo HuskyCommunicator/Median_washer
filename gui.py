@@ -124,17 +124,44 @@ class App(ctk.CTk):
         self.btn_delete_rule = ctk.CTkButton(self.frame_btns, text="删除本规则", width=100, fg_color="darkred", command=self.delete_current_rule)
         self.btn_delete_rule.pack(side="left", padx=5)
 
-        # 3. 控制按钮
+        # 3. 控制按钮和OCR设置
         self.frame_ctrl = ctk.CTkFrame(self)
         self.frame_ctrl.grid(row=2, column=0, columnspan=2, padx=10, pady=10, sticky="ew")
 
-        self.btn_start = ctk.CTkButton(self.frame_ctrl, text="开始洗炼", command=self.start_washing, 
-                                       fg_color="green", hover_color="darkgreen", height=40, font=("Microsoft YaHei", 16))
-        self.btn_start.pack(side="left", expand=True, fill="x", padx=20, pady=10)
+        # 按钮容器
+        self.frame_ctrl_btns = ctk.CTkFrame(self.frame_ctrl, fg_color="transparent")
+        self.frame_ctrl_btns.pack(fill="x", padx=5, pady=5)
 
-        self.btn_stop = ctk.CTkButton(self.frame_ctrl, text="停止", command=self.stop_washing, 
+        self.btn_start = ctk.CTkButton(self.frame_ctrl_btns, text="开始洗炼", command=self.start_washing, 
+                                       fg_color="green", hover_color="darkgreen", height=40, font=("Microsoft YaHei", 16))
+        self.btn_start.pack(side="left", expand=True, fill="x", padx=10, pady=5)
+
+        self.btn_stop = ctk.CTkButton(self.frame_ctrl_btns, text="停止", command=self.stop_washing, 
                                       fg_color="red", hover_color="darkred", height=40, font=("Microsoft YaHei", 16), state="disabled")
-        self.btn_stop.pack(side="left", expand=True, fill="x", padx=20, pady=10)
+        self.btn_stop.pack(side="left", expand=True, fill="x", padx=10, pady=5)
+        
+        # OCR设置容器
+        self.frame_ocr_settings = ctk.CTkFrame(self.frame_ctrl, fg_color="transparent")
+        self.frame_ocr_settings.pack(fill="x", padx=5, pady=5)
+        
+        # 调试模式复选框
+        self.debug_mode_var = ctk.BooleanVar(value=False)
+        self.check_debug = ctk.CTkCheckBox(self.frame_ocr_settings, text="调试模式", variable=self.debug_mode_var, 
+                                          font=("Microsoft YaHei", 12))
+        self.check_debug.pack(side="left", padx=10)
+        
+        # OCR放大倍数设置
+        self.lbl_scale = ctk.CTkLabel(self.frame_ocr_settings, text="OCR放大倍数:", font=("Microsoft YaHei", 12))
+        self.lbl_scale.pack(side="left", padx=(20, 5))
+        
+        self.scale_var = ctk.StringVar(value="5.0")
+        self.entry_scale = ctk.CTkEntry(self.frame_ocr_settings, textvariable=self.scale_var, width=60, 
+                                       font=("Microsoft YaHei", 12))
+        self.entry_scale.pack(side="left", padx=5)
+        
+        self.lbl_scale_hint = ctk.CTkLabel(self.frame_ocr_settings, text="(推荐3-10倍，字越小倍数越高)", 
+                                          font=("Microsoft YaHei", 10), text_color="gray")
+        self.lbl_scale_hint.pack(side="left", padx=5)
 
         # 4. 日志区域
         self.log_box = ctk.CTkTextbox(self, font=("Consolas", 12))
@@ -429,7 +456,17 @@ class App(ctk.CTk):
         
         def run_calibrate():
             try:
-                temp_washer = GearWasher(tesseract_cmd=self.ocr_path)
+                # 获取OCR放大倍数
+                try:
+                    scale_factor = float(self.scale_var.get())
+                    if scale_factor < 1.0 or scale_factor > 20.0:
+                        scale_factor = 5.0
+                except:
+                    scale_factor = 5.0
+                    
+                temp_washer = GearWasher(tesseract_cmd=self.ocr_path, 
+                                        debug_mode=self.debug_mode_var.get(),
+                                        ocr_scale_factor=scale_factor)
                 pos_data = temp_washer.calibrate_ui() 
                 
                 # save_equipment_type 内部用了 INSERT ... ON CONFLICT UPDATE
@@ -493,8 +530,22 @@ class App(ctk.CTk):
             if not wash_btn:
                 print("错误：未找到全局洗炼按钮坐标，请尝试【新建/定位】一次")
                 return
+            
+            # 获取OCR放大倍数
+            try:
+                scale_factor = float(self.scale_var.get())
+                if scale_factor < 1.0 or scale_factor > 20.0:
+                    print(f"警告：放大倍数 {scale_factor} 超出合理范围，使用默认5.0倍")
+                    scale_factor = 5.0
+            except:
+                print("警告：OCR放大倍数格式错误，使用默认5.0倍")
+                scale_factor = 5.0
+            
+            print(f"OCR设置：放大倍数 {scale_factor}x, 调试模式 {'ON' if self.debug_mode_var.get() else 'OFF'}")
                 
-            self.washer = GearWasher(tesseract_cmd=self.ocr_path)
+            self.washer = GearWasher(tesseract_cmd=self.ocr_path, 
+                                    debug_mode=self.debug_mode_var.get(),
+                                    ocr_scale_factor=scale_factor)
             self.washer.gear_pos = cfg['gear_pos']
             self.washer.wash_button_pos = tuple(wash_btn)
             

@@ -10,9 +10,11 @@ from .matcher import AffixMatcher
 from .screen import ScreenReader
 
 class GearWasher:
-    def __init__(self, tesseract_cmd=None):
+    def __init__(self, tesseract_cmd=None, debug_mode=False, ocr_scale_factor=5.0):
         self.matcher = AffixMatcher()
-        self.screen = ScreenReader(tesseract_cmd)
+        self.screen = ScreenReader(tesseract_cmd, debug_mode=debug_mode)
+        self.debug_mode = debug_mode
+        self.ocr_scale_factor = ocr_scale_factor  # OCR图片放大倍数
         
         # 默认配置
         self.gear_pos = None     # (x, y) 装备悬停位置
@@ -196,7 +198,7 @@ class GearWasher:
             if self._check_stop(): break
             
             try:
-                text = self.screen.read_text(self.affix_region)
+                text = self.screen.read_text(self.affix_region, scale_factor=self.ocr_scale_factor)
             except Exception as e:
                 print(f"识别出错: {e}")
                 text = ""

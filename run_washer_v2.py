@@ -23,8 +23,23 @@ def clear_screen():
     print("\n" * 2)
 
 def main():
+    # 检查是否启用调试模式
+    debug_mode = "--debug" in sys.argv or "-d" in sys.argv
+    if debug_mode:
+        print(">>> 调试模式已启用：OCR图片将保存到 ocr_debug/ 目录 <<<\n")
+    
+    # 检查OCR放大倍数参数
+    scale_factor = 5.0  # 默认5倍
+    for arg in sys.argv:
+        if arg.startswith("--scale="):
+            try:
+                scale_factor = float(arg.split("=")[1])
+                print(f">>> OCR放大倍数设置为：{scale_factor}x <<<\n")
+            except:
+                print(f"警告：无法解析放大倍数参数 {arg}，使用默认5.0倍")
+    
     db = SimpleDB()
-    washer = GearWasher(tesseract_cmd=OCR_CMD)
+    washer = GearWasher(tesseract_cmd=OCR_CMD, debug_mode=debug_mode, ocr_scale_factor=scale_factor)
     
     # ---------------------------------------------------------
     # 第一步：选择物品类型 (Item Position)

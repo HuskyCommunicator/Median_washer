@@ -3,6 +3,9 @@ OCR/
 ocr/
 Tesseract-OCR/
 
+# OCR 调试图片
+ocr_debug/
+
 # Python 编译缓存
 __pycache__/
 *.pyc
