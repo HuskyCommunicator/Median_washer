@@ -21,6 +21,21 @@ class GearWasher:
         self.conditions = None
         self.max_attempts = 1000
         self.interval = 1.0 # 每次洗炼间隔(秒)
+        
+        # 中止信号标志位
+        self.stop_requested = False
+        if keyboard:
+            try:
+                # 注册全局热键，确保即使在 busy 时也能捕获按键
+                keyboard.add_hotkey('home', self._on_stop_signal)
+            except Exception as e:
+                print(f"热键注册失败: {e}")
+
+    def _on_stop_signal(self):
+        """Home键的回调函数"""
+        if not self.stop_requested:
+            print("\n>>> 已捕获 HOME 键，正在通过信号停止... <<<")
+            self.stop_requested = True
 
     def _wait_for_key(self):
         """等待按键确认坐标"""
@@ -120,11 +135,17 @@ class GearWasher:
         print("\n设置完成！")
 
     def _check_stop(self):
-        """检查是否有停止信号（HOME键）"""
-        # 优先使用 keyboard 库检测 HOME 键
-        if keyboard and keyboard.is_pressed('home'):
-            print("\n\n>>> 检测到 HOME 键，正在停止... <<<")
+        """检查是否有停止信号"""
+        # 1. 检查标志位 (由 hotkey 设置)
+        if self.stop_requested:
             return True
+            
+        # 2. 直接检查按键状态 (作为备用)
+        if keyboard and keyboard.is_pressed('home'):
+            self.stop_requested = True # 确保标志位同步
+            print("\n\n>>> 检测到 HOME 键 (直接)，正在停止... <<<")
+            return True
+            
         return False
 
     def _smart_sleep(self, duration):
