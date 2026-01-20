@@ -96,9 +96,17 @@ class AffixMatcher:
                     if found_exact:
                         matched_count += 1
                 else:
-                    # 模糊匹配 (包含即可)
-                    if kw_normalized in raw_text:
-                        matched_count += 1
+                    # 模糊匹配 或 表达式匹配
+                    # 如果 affix_str 包含逻辑符号 && ||，则作为表达式处理
+                    if '&&' in affix_str or '||' in affix_str:
+                         # 这里调用 _check_expression 而不是递归调用 check，
+                         # 因为我们已经有了 normailzed 的 raw_text，不需要再次 normalize
+                         if self._check_expression(raw_text, affix_str):
+                            matched_count += 1
+                    else:
+                        # 普通包含匹配
+                        if kw_normalized in raw_text:
+                            matched_count += 1
             
             # 根据类型判定
             if g_type == 'AND':
