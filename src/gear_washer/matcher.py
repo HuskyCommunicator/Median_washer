@@ -21,13 +21,13 @@ class AffixMatcher:
         
         :param screen_text: OCR 识别出的整段文本
         :param conditions: 匹配条件
-               - 字符串: 
-                   1. 简单关键词: "冰霜抗性"
-                   2. 复杂表达式: "冰霜抗性 && (攻击速度 || 暴击率)" (包含 && || 符号时自动启用表达式模式)
-               - 列表: 默认视为 AND 关系
-               - 字典: {'AND': [...], 'OR': [...]}
         """
         raw_text = self.normalize_text(screen_text)
+
+        # 1. 复杂规则组 (List of Dicts with 'idx', 'type' etc.)
+        # 识别特征: 是列表，且元素是字典，且字典里有 'type' 字段
+        if isinstance(conditions, list) and len(conditions) > 0 and isinstance(conditions[0], dict) and 'type' in conditions[0]:
+            return self._check_complex_groups(raw_text, conditions)
 
         if isinstance(conditions, str):
             # 检查是否包含逻辑运算符，如果是，走复杂表达式逻辑
@@ -39,22 +39,52 @@ class AffixMatcher:
             return keyword in raw_text
 
         elif isinstance(conditions, list):
-            # 列表默认是 AND 关系
+            # 普通字符串列表默认是 AND 关系 (旧逻辑兼容)
             return all(self.check(screen_text, cond) for cond in conditions)
 
-        elif isinstance(conditions, dict):
-            # 字典支持 AND / OR
-            if 'OR' in conditions:
-                res = any(self.check(screen_text, cond) for cond in conditions['OR'])
-                if not res: return False
-            
-            if 'AND' in conditions:
-                res = all(self.check(screen_text, cond) for cond in conditions['AND'])
-                if not res: return False
-            
-            return True
-        
         return False
+
+    def _check_complex_groups(self, raw_text: str, groups: List[Dict]) -> bool:
+        """
+        处理高级规则组逻辑
+        所有 group 之间默认是 AND 关系 (必须全部满足)
+        """
+        for group in groups:
+            g_type = group.get('type', 'AND')
+            affixes = group.get('affixes', [])
+            
+            # 计算当前组里有多少个词缀匹配上了
+            matched_count = 0
+            for affix in affixes:
+                if not affix.strip(): continue # 忽略空行
+                kw = self.normalize_text(affix.strip())
+                if kw in raw_text:
+                    matched_count += 1
+            
+            # 根据类型判定
+            if g_type == 'AND':
+                # AND: 必须全部存在
+                # 实际上 affixes 里所有词缀都必须找到
+                if matched_count < len([a for a in affixes if a.strip()]):
+                    return False
+                    
+            elif g_type == 'NOT':
+                # NOT: 必须全部不存在 (count == 0)
+                if matched_count > 0:
+                    return False
+                    
+            elif g_type == 'COUNT':
+                # COUNT: 数量限制
+                min_val = group.get('min')
+                max_val = group.get('max')
+                
+                if min_val is not None and matched_count < int(min_val):
+                    return False
+                if max_val is not None and matched_count > int(max_val):
+                    return False
+                    
+        # e.g. 所有组都通过
+        return True
 
     def _check_expression(self, raw_text: str, expression: str) -> bool:
         """

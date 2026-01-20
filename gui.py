@@ -5,9 +5,11 @@ import os
 import time
 import io
 import queue
+import json
 from src.gear_washer.washer import GearWasher
 from src.gear_washer.db_helper import SimpleDB
 from config.affix_config import DEFAULT_CONFIGS
+from complex_editor import ComplexRuleEditor
 
 # 设置主题
 ctk.set_appearance_mode("Dark")
@@ -88,6 +90,9 @@ class App(ctk.CTk):
         
         self.entry_affix = ctk.CTkEntry(self.frame_mid, width=400, placeholder_text="例如: 冰霜抗性 && 智力")
         self.entry_affix.grid(row=1, column=1, columnspan=2, padx=10, pady=5, sticky="w")
+        
+        self.btn_advanced = ctk.CTkButton(self.frame_mid, text="高级编辑器", width=100, fg_color="#555555", command=self.open_advanced_editor)
+        self.btn_advanced.grid(row=1, column=3, padx=10, pady=5)
 
         # 3. 控制按钮
         self.frame_ctrl = ctk.CTkFrame(self)
@@ -167,8 +172,30 @@ class App(ctk.CTk):
     def on_affix_change(self, choice):
         if choice in self.affix_data_map:
             content = self.affix_data_map[choice]
+            # 如果是复杂对象(list/dict)，转成json字符串显示
+            if isinstance(content, (list, dict)):
+                content = json.dumps(content, ensure_ascii=False)
+            
             self.entry_affix.delete(0, "end")
-            self.entry_affix.insert(0, content)
+            self.entry_affix.insert(0, str(content))
+
+    def open_advanced_editor(self):
+        # 尝试解析当前输入框内容作为初始数据
+        current_text = self.entry_affix.get().strip()
+        initial_data = None
+        if current_text.startswith("[") and current_text.endswith("]"):
+            try:
+                initial_data = json.loads(current_text)
+            except:
+                pass
+        
+        # 回调函数：编辑器保存并将结果写回输入框
+        def on_save(data):
+            json_str = json.dumps(data, ensure_ascii=False)
+            self.entry_affix.delete(0, "end")
+            self.entry_affix.insert(0, json_str)
+            
+        ComplexRuleEditor(self, initial_data=initial_data, callback=on_save)
 
     def create_new_equip(self):
         """打开新窗口进行定位向导 (为了简单，暂时用弹窗模拟逻辑)"""
@@ -225,10 +252,19 @@ class App(ctk.CTk):
             print("错误：请先选择或新建装备配置！")
             return
             
-        affix_rule = self.entry_affix.get().strip()
-        if not affix_rule:
+        affix_rule_str = self.entry_affix.get().strip()
+        if not affix_rule_str:
             print("错误：词缀规则为空！")
             return
+            
+        # 尝试解析 JSON (如果是高级规则)
+        final_conditions = affix_rule_str
+        if affix_rule_str.startswith("[") or affix_rule_str.startswith("{"):
+            try:
+                final_conditions = json.loads(affix_rule_str)
+            except json.JSONDecodeError:
+                # 解析失败则当作普通字符串处理
+                pass
 
         # 准备数据
         try:
@@ -255,7 +291,7 @@ class App(ctk.CTk):
             h = abs(p2[1] - p1[1])
             self.washer.affix_region = (x, y, w, h)
             
-            self.washer.conditions = affix_rule
+            self.washer.conditions = final_conditions
             
         except Exception as e:
             print(f"初始化失败: {e}")
