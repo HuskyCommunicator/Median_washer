@@ -10,11 +10,11 @@ from .matcher import AffixMatcher
 from .screen import ScreenReader
 
 class GearWasher:
-    def __init__(self, tesseract_cmd=None, debug_mode=False, ocr_scale_factor=5.0):
+    def __init__(self, tesseract_cmd=None, debug_mode=False, ocr_scale_factor=2.5):
         self.matcher = AffixMatcher()
         self.screen = ScreenReader(tesseract_cmd, debug_mode=debug_mode)
         self.debug_mode = debug_mode
-        self.ocr_scale_factor = ocr_scale_factor  # OCR图片放大倍数
+        self.ocr_scale_factor = ocr_scale_factor  # OCR图片放大倍数，原图字高20px左右，2.5倍放大到50px最佳
         
         # 默认配置
         self.gear_pos = None     # (x, y) 装备悬停位置

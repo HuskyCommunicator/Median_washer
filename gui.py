@@ -146,22 +146,9 @@ class App(ctk.CTk):
         
         # 调试模式复选框
         self.debug_mode_var = ctk.BooleanVar(value=False)
-        self.check_debug = ctk.CTkCheckBox(self.frame_ocr_settings, text="调试模式", variable=self.debug_mode_var, 
+        self.check_debug = ctk.CTkCheckBox(self.frame_ocr_settings, text="调试模式 (保存OCR图片)", variable=self.debug_mode_var, 
                                           font=("Microsoft YaHei", 12))
         self.check_debug.pack(side="left", padx=10)
-        
-        # OCR放大倍数设置
-        self.lbl_scale = ctk.CTkLabel(self.frame_ocr_settings, text="OCR放大倍数:", font=("Microsoft YaHei", 12))
-        self.lbl_scale.pack(side="left", padx=(20, 5))
-        
-        self.scale_var = ctk.StringVar(value="5.0")
-        self.entry_scale = ctk.CTkEntry(self.frame_ocr_settings, textvariable=self.scale_var, width=60, 
-                                       font=("Microsoft YaHei", 12))
-        self.entry_scale.pack(side="left", padx=5)
-        
-        self.lbl_scale_hint = ctk.CTkLabel(self.frame_ocr_settings, text="(推荐3-10倍，字越小倍数越高)", 
-                                          font=("Microsoft YaHei", 10), text_color="gray")
-        self.lbl_scale_hint.pack(side="left", padx=5)
 
         # 4. 日志区域
         self.log_box = ctk.CTkTextbox(self, font=("Consolas", 12))
@@ -456,17 +443,9 @@ class App(ctk.CTk):
         
         def run_calibrate():
             try:
-                # 获取OCR放大倍数
-                try:
-                    scale_factor = float(self.scale_var.get())
-                    if scale_factor < 1.0 or scale_factor > 20.0:
-                        scale_factor = 5.0
-                except:
-                    scale_factor = 5.0
-                    
+                # 使用默认配置 (在 washer.py 中定义)
                 temp_washer = GearWasher(tesseract_cmd=self.ocr_path, 
-                                        debug_mode=self.debug_mode_var.get(),
-                                        ocr_scale_factor=scale_factor)
+                                        debug_mode=self.debug_mode_var.get())
                 pos_data = temp_washer.calibrate_ui() 
                 
                 # save_equipment_type 内部用了 INSERT ... ON CONFLICT UPDATE
@@ -531,21 +510,10 @@ class App(ctk.CTk):
                 print("错误：未找到全局洗炼按钮坐标，请尝试【新建/定位】一次")
                 return
             
-            # 获取OCR放大倍数
-            try:
-                scale_factor = float(self.scale_var.get())
-                if scale_factor < 1.0 or scale_factor > 20.0:
-                    print(f"警告：放大倍数 {scale_factor} 超出合理范围，使用默认5.0倍")
-                    scale_factor = 5.0
-            except:
-                print("警告：OCR放大倍数格式错误，使用默认5.0倍")
-                scale_factor = 5.0
-            
-            print(f"OCR设置：放大倍数 {scale_factor}x, 调试模式 {'ON' if self.debug_mode_var.get() else 'OFF'}")
+            print(f"OCR设置：调试模式 {'ON' if self.debug_mode_var.get() else 'OFF'}")
                 
             self.washer = GearWasher(tesseract_cmd=self.ocr_path, 
-                                    debug_mode=self.debug_mode_var.get(),
-                                    ocr_scale_factor=scale_factor)
+                                    debug_mode=self.debug_mode_var.get())
             self.washer.gear_pos = cfg['gear_pos']
             self.washer.wash_button_pos = tuple(wash_btn)
             

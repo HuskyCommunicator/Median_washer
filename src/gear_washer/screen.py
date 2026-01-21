@@ -2,7 +2,7 @@ import pyautogui
 import pytesseract
 import tempfile
 import os
-from PIL import Image
+from PIL import Image, ImageOps, ImageChops
 from typing import Tuple, Optional
 
 class ScreenReader:
@@ -34,12 +34,12 @@ class ScreenReader:
             print(f"Screenshot failed for region {region}: {e}")
             return Image.new('RGB', (1, 1), color='black')
 
-    def read_text(self, region: Tuple[int, int, int, int], lang: str = 'chi_sim', scale_factor: float = 3.0) -> str:
+    def read_text(self, region: Tuple[int, int, int, int], lang: str = 'chi_sim', scale_factor: float = 2.5) -> str:
         """
         读取指定区域的文字
         :param region: (left, top, width, height)
         :param lang: 语言代码，默认为简体中文 'chi_sim' (需要安装对应的 tesseract 语言包)
-        :param scale_factor: 图片放大倍数，默认放大3倍以提高OCR准确度
+        :param scale_factor: 图片放大倍数，默认放大2.5倍以提高OCR准确度
         """
         image = self.capture_region(region)
         
@@ -49,6 +49,34 @@ class ScreenReader:
             new_size = (int(original_size[0] * scale_factor), int(original_size[1] * scale_factor))
             # 使用 LANCZOS 高质量缩放算法
             image = image.resize(new_size, Image.Resampling.LANCZOS)
+        
+        # === 图像预处理增强 (针对黑底彩字优化 V2) ===
+        # 之前的强制二值化可能导致边缘锯齿和模糊。
+        # 这里改用 HSV 的 V 通道（亮度）提取，这是处理"黑底任何亮色字"的通用解法。
+        # 原理：HSV中的V代表亮度。
+        #  - 黑色背景 (0,0,0) -> V=0
+        #  - 蓝色文字 (0,0,255) -> V=255 (最大亮度)
+        #  - 只有在普通的灰度转换中，蓝色才会变暗。在V通道里，它是最亮的。
+        
+        try:
+            # 1. 转换为 HSV 模式
+            if image.mode != 'HSV':
+                # 注意：如果 convert 之前是 paletted 模式，可能需要先转 RGB
+                image = image.convert('RGB').convert('HSV')
+            
+            # 2. 提取 V 通道 (此时图片是：黑底、高亮白字)
+            # split 返回 (H, S, V)
+            _, _, v = image.split()
+            
+            # 3. 反色 (变成 Tesseract 最喜欢的：白底、深黑字)
+            # 此时蓝色文字变成了黑色，黑色背景变成了白色。
+            # 我们不再做二值化(thresholding)，保留抗锯齿边缘，防止字体破碎或模糊。
+            image = ImageOps.invert(v)
+            
+        except Exception as e:
+            print(f"Image preprocessing failed: {e}, falling back to grayscale.")
+            image = image.convert('L') # 降级处理
+        # ====================
         
         # 调试模式：保存OCR识别的图片
         if self.debug_mode:

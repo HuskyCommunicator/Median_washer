@@ -11,8 +11,10 @@ class AffixMatcher:
     def normalize_text(text: str) -> str:
         """简单的文本标准化，去除标点和多余空格，转小写"""
         text = text.lower()
-        # 去除特殊字符，只保留文字数字
-        text = re.sub(r'[^\w\s]', '', text)
+        # 将特殊字符替换为空格，而不是直接删除，防止 "法术伤害+10%" 变成 "法术伤害10" 导致的粘连
+        text = re.sub(r'[^\w\s]', ' ', text)
+        # 合并多余空格
+        text = re.sub(r'\s+', ' ', text).strip()
         return text
 
     def check(self, screen_text: str, conditions: Union[str, List, Dict]) -> bool:
@@ -144,10 +146,12 @@ class AffixMatcher:
         """
         解析并执行复杂逻辑表达式
         例如: "冰霜抗性 && (攻速 || 暴击)"
+        支持 ! 符号表示非，例如 "!冰冻"
         """
-        # 1. 预处理表达式：将 && || 转换为 python 的 and or
+        # 1. 预处理表达式：将 && || ! 转换为 python 的 and or not
         # 同时为了避免 eval 安全问题和变量名问题，我们采用“提取-替换-计算”的策略
-        python_expr = expression.replace('&&', ' and ').replace('||', ' or ')
+        # 注意替换顺序
+        python_expr = expression.replace('&&', ' and ').replace('||', ' or ').replace('!', ' not ')
         
         # 2. 提取所有可能的关键词（假设关键词是非特殊符号的连续串）
         # 排除 Python 关键字
