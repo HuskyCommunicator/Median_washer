@@ -6,6 +6,10 @@ import time
 import io
 import queue
 import json
+try:
+    import keyboard
+except ImportError:
+    keyboard = None
 from src.gear_washer.washer import GearWasher
 from src.gear_washer.db_helper import SimpleDB
 from config.affix_config import DEFAULT_CONFIGS
@@ -62,8 +66,22 @@ class App(ctk.CTk):
         self._init_ui()
         self._load_data()
         
+        # 注册全局快捷键
+        if keyboard:
+            try:
+                keyboard.add_hotkey('end', self._on_start_hotkey)
+                print("全局快捷键已注册: 按 [END] 开始洗炼, 按 [HOME] 停止")
+            except Exception as e:
+                print(f"快捷键注册失败: {e}")
+        
         # 定时检查日志输出
         self.after(100, self._check_log_queue)
+
+    def _on_start_hotkey(self):
+        """处理 END 键按下"""
+        if not self.running:
+            # 在主线程调用 start, 避免线程安全问题
+            self.after(0, self.start_washing)
 
     def _init_ui(self):
         # 1. 装备选择区域
@@ -155,7 +173,7 @@ class App(ctk.CTk):
         self.log_box.grid(row=3, column=0, columnspan=2, padx=10, pady=10, sticky="nsew")
         
         # 状态栏
-        self.lbl_status = ctk.CTkLabel(self, text="就绪", text_color="gray")
+        self.lbl_status = ctk.CTkLabel(self, text="就绪 (按END开始/HOME停止)", text_color="gray")
         self.lbl_status.grid(row=4, column=0, columnspan=2, sticky="w", padx=10)
 
         # 重定向输出
