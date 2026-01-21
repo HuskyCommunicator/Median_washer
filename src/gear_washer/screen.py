@@ -2,6 +2,7 @@ import pyautogui
 import pytesseract
 import tempfile
 import os
+import subprocess
 from PIL import Image, ImageOps, ImageChops
 from typing import Tuple, Optional
 
@@ -96,7 +97,80 @@ class ScreenReader:
         try:
             # Save as BMP (lossless, uncompressed, usually robust)
             image.save(temp_filename)
-            text = pytesseract.image_to_string(temp_filename, lang=lang)
+            
+            # --- 自定义 Tesseract 调用 (解决 pytesseract 编码崩溃问题) ---
+            tesseract_cmd = pytesseract.pytesseract.tesseract_cmd
+            if not tesseract_cmd:
+                tesseract_cmd = 'tesseract'
+                
+            # 构建命令: tesseract input stdout -l lang --tessdata-dir "path/to/tessdata"
+            # 显式传递 --tessdata-dir 参数，这是最稳妥的解决路径问题的方法
+            # 它可以覆盖环境变量和内置路径
+            cmd_args = [tesseract_cmd, temp_filename, "stdout", "-l", lang]
+            
+            # 尝试自动定位 tessdata 目录
+            # 逻辑：假设 tesseract.exe 和 tessdata 在同一级或者 tessdata 在 tesseract.exe 的同/子目录下
+            # 我们的打包结构是 dist/App/OCR/tesseract.exe 和 dist/App/OCR/tessdata/
+            exe_dir = os.path.dirname(tesseract_cmd)
+            # 如果 tesseract_cmd 是相对路径或者只是 'tesseract'，我们需要获取其实际位置
+            # 但这里我们主要处理是在 gui.py 里已经配置了 absolute path 的情况
+            
+            # 只有当 tesseract_cmd 是绝对路径时，我们才尝试智能推断
+            if os.path.isabs(tesseract_cmd):
+                possible_tessdata = os.path.join(exe_dir, "tessdata")
+                if os.path.exists(possible_tessdata):
+                    cmd_args.extend(["--tessdata-dir", possible_tessdata])
+                else:
+                    # 也可以尝试从环境变量获取，作为双重保险
+                    env_prefix = os.environ.get('TESSDATA_PREFIX')
+                    if env_prefix and os.path.exists(env_prefix):
+                         cmd_args.extend(["--tessdata-dir", env_prefix])
+
+            # print(f"DEBUG: OCR Running command: {cmd_args}") # Debug usage
+            
+            # 隐藏窗口 (Windows Only)
+            startupinfo = None
+            if os.name == 'nt':
+                startupinfo = subprocess.STARTUPINFO()
+                startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+                startupinfo.wShowWindow = subprocess.SW_HIDE
+
+            try:
+                proc = subprocess.Popen(
+                    cmd_args,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    startupinfo=startupinfo
+                )
+                stdout_data, stderr_data = proc.communicate(timeout=10) # 10秒超时
+                
+                if proc.returncode != 0:
+                    # 尝试解码错误信息 (优先 UTF-8，其次 GBK)
+                    try:
+                        err_msg = stderr_data.decode('utf-8')
+                    except UnicodeDecodeError:
+                        try:
+                            err_msg = stderr_data.decode('gbk')
+                        except:
+                            err_msg = str(stderr_data)
+                    print(f"OCR Process Error (Code {proc.returncode}): {err_msg.strip()}")
+                    text = ""
+                else:
+                    # 成功，解码输出
+                    try:
+                        text = stdout_data.decode('utf-8')
+                    except UnicodeDecodeError:
+                        try:
+                            text = stdout_data.decode('gbk')
+                        except:
+                            print("OCR Output Decode Failed")
+                            text = ""
+            except Exception as sub_e:
+                print(f"Failed to run tesseract directly: {sub_e}")
+                # Fallback (optional, but likely fail if pytesseract was crashing)
+                text = ""
+            # -----------------------------------------------------------
+            
         except Exception as e:
             print(f"OCR Error: {e}")
             text = ""

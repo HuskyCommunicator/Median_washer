@@ -52,6 +52,32 @@ class App(ctk.CTk):
 
         self.ocr_path = os.path.join(base_dir, 'OCR', 'tesseract.exe')
         
+        # 设置 TESSDATA_PREFIX 环境变量，防止 Tesseract 找不到语言包
+        # 尤其是在打包后的环境中，必须显式指定
+        tessdata_path = os.path.join(base_dir, 'OCR', 'tessdata')
+        # 即使是 Windows，Tesseract 依然可能被 POSIX 路径习惯影响，尤其是 MSYS2 编译的版本
+        # 确保路径不以反斜杠结尾，并且尝试转换为绝对路径
+        tessdata_path = os.path.abspath(tessdata_path)
+        
+        # 关键修正：有些版本的 Tesseract 期望 TESSDATA_PREFIX 指向 tessdata 的*父目录*，
+        # 而有些期望指向 tessdata *本身*。
+        # 报错信息 "Warning: TESSDATA_PREFIX ...tessdata does not exist" 非常奇怪，
+        # 因为我们刚才确认它存在。这通常暗示 Tesseract 内部可能再次拼接了 'tessdata'。
+        # 比如：我们设了 C:\...\tessdata，它去找 C:\...\tessdata\tessdata
+        
+        # 策略：如果目录存在，我们设为它的父目录试一下，或者保持原样。
+        # 看到报错 "Error opening data file .../tessdata/chi_sim.traineddata"
+        # 它的默认搜索路径是写死的 /home/debian/... 这是一个典型的 MSYS2/MinGW 编译路径泄露。
+        
+        # 强制设置环境变量
+        os.environ['TESSDATA_PREFIX'] = tessdata_path
+        
+        # 二次确认：有些 tesseract 版本如果不灵，试试指向父目录
+        # os.environ['TESSDATA_PREFIX'] = os.path.dirname(tessdata_path) 
+        
+        print(f"DEBUG: TESSDATA_PREFIX set to: {os.environ['TESSDATA_PREFIX']}")
+        print(f"DEBUG: Checking if path exists: {os.path.exists(tessdata_path)}")
+        
         self.washer = None # 将在运行时实例化
         self.running = False
         self.worker_thread = None
