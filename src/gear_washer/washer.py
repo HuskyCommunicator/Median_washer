@@ -8,6 +8,7 @@ except ImportError:
 
 from .matcher import AffixMatcher
 from .screen import ScreenReader
+from . import win32_utils # 导入窗口工具
 
 class GearWasher:
     def __init__(self, tesseract_cmd=None, debug_mode=False, ocr_scale_factor=2.5):
@@ -17,8 +18,9 @@ class GearWasher:
         self.ocr_scale_factor = ocr_scale_factor  # OCR图片放大倍数，原图字高20px左右，2.5倍放大到50px最佳
         
         # 默认配置
-        self.gear_pos = None     # (x, y) 装备悬停位置
-        self.affix_region = None  # (x, y, w, h) 词缀识别区域
+        self.gear_pos = None     # (x, y) 装备悬停位置 (可能是相对坐标)
+        self.affix_region = None  # (x, y, w, h) 词缀识别区域 (如果是相对模式，xy为相对)
+        self.window_title = None  # 绑定的窗口标题，如果不为None，则启用相对坐标模式
         self.wash_button_pos = None # (x, y) 洗炼按钮位置
         self.conditions = None
         self.max_attempts = 1000
@@ -63,6 +65,7 @@ class GearWasher:
     def calibrate_ui(self):
         """
         [新的] 交互式获取坐标配置，返回字典
+        此版本支持相对坐标：会先记录当前游戏窗口的位置
         """
         print("=== 界面坐标校准模式 ===")
         
@@ -73,11 +76,29 @@ class GearWasher:
         else:
             print("警告：未安装 keyboard 库，将使用受限的空格键模式。")
             wait_func = self._wait_for_limit
+
+        # 0. 绑定游戏窗口
+        print("\n[0/3] 正在识别游戏窗口...")
+        print("请【激活/点击】游戏窗口，确保它是当前活动窗口，然后按【Space 空格键】确认绑定。")
+        wait_func() # 等待用户确认激活
+        
+        target_window = win32_utils.get_foreground_window_info()
+        if not target_window:
+            print("警告：无法获取活动窗口信息！将使用绝对坐标模式。")
+            win_x, win_y = 0, 0
+            win_title = None
+        else:
+            win_x, win_y = target_window['x'], target_window['y']
+            win_title = target_window['title']
+            print(f"已绑定窗口: [{win_title}] 位置: ({win_x}, {win_y})")
+            print("接下来录制的所有坐标都将相对于此窗口左上角。")
         
         # 1. 设置装备悬停位置
         print("\n[1/3] 请将鼠标移动到【装备图标】上（用于触发属性浮窗）...")
         gx, gy = wait_func()
-        print(f"记录装备位置: {(gx, gy)}")
+        # 转换为相对坐标
+        gx_rel, gy_rel = gx - win_x, gy - win_y
+        print(f"记录装备位置: 绝对{(gx, gy)} -> 相对{(gx_rel, gy_rel)}")
 
         # 2. 设置词缀识别区域
         print("\n[2/3] 即将设置词缀区域 (OCR范围)。")
@@ -92,14 +113,15 @@ class GearWasher:
         print(f"记录右下角: ({x2}, {y2})")
         
         # 返回原始定义的两个对角点，方便存储和计算
-        p1 = (x1, y1)
-        p2 = (x2, y2)
+        p1 = (x1 - win_x, y1 - win_y)
+        p2 = (x2 - win_x, y2 - win_y)
 
         print("\n[3/3] 完成！鼠标将停留在装备位置，按Z键进行洗炼。")
         
         return {
-            "gear_pos": (gx, gy),
-            "affix_points": (p1, p2)
+            "gear_pos": (gx_rel, gy_rel),
+            "affix_points": (p1, p2),
+            "window_title": win_title
         }
 
     def setup_wizard(self):
@@ -173,6 +195,25 @@ class GearWasher:
             print("启动被打断。")
             return
 
+        # 计算偏移量 (如果绑定了窗口)
+        offset_x, offset_y = 0, 0
+        if self.window_title:
+            print(f"尝试查找窗口: [{self.window_title}] ...")
+            target_win = win32_utils.find_window_by_title(self.window_title)
+            if target_win:
+                offset_x, offset_y = target_win['x'], target_win['y']
+                print(f"已定位窗口位置: ({offset_x}, {offset_y})")
+            else:
+                print(f"错误: 找不到标题包含 [{self.window_title}] 的窗口！")
+                print("请确认游戏已启动。将尝试使用最后的绝对坐标...")
+                # 这里可以选择 return 中止，或者冒险继续
+                # 为了安全，中止比较好
+                return
+
+        # 预计算实际坐标
+        real_gear_pos = (self.gear_pos[0] + offset_x, self.gear_pos[1] + offset_y)
+        real_affix_region = (self.affix_region[0] + offset_x, self.affix_region[1] + offset_y, self.affix_region[2], self.affix_region[3])
+
         for i in range(self.max_attempts):
             # --- 阶段性检查 1 ---
             if self._check_stop(): break
@@ -181,7 +222,7 @@ class GearWasher:
             
             # 1. 移动到装备位置，显示浮窗
             # 使用 duration=0 瞬间移动，确保鼠标在位
-            pyautogui.moveTo(self.gear_pos[0], self.gear_pos[1], duration=0)
+            pyautogui.moveTo(real_gear_pos[0], real_gear_pos[1], duration=0)
             
             # --- 阶段性检查 2 (移动后) ---
             if self._check_stop(): break
@@ -194,7 +235,8 @@ class GearWasher:
             if self._check_stop(): break
             
             try:
-                text = self.screen.read_text(self.affix_region, scale_factor=self.ocr_scale_factor)
+                # 使用计算后的实际区域
+                text = self.screen.read_text(real_affix_region, scale_factor=self.ocr_scale_factor)
             except Exception as e:
                 print(f"识别出错: {e}")
                 text = ""

@@ -497,7 +497,8 @@ class App(ctk.CTk):
                 self.db.save_equipment_type(
                     name=name,
                     gear_pos=pos_data['gear_pos'],
-                    affix_points=pos_data['affix_points']
+                    affix_points=pos_data['affix_points'],
+                    window_title=pos_data.get('window_title')
                 )
                 
                 print(f"配置 [{name}] 保存成功！请手动重启程序或刷新列表。")
@@ -553,6 +554,7 @@ class App(ctk.CTk):
             self.washer = GearWasher(tesseract_cmd=self.ocr_path, 
                                     debug_mode=self.debug_mode_var.get())
             self.washer.gear_pos = cfg['gear_pos']
+            self.washer.window_title = cfg.get('window_title') # 设置绑定的窗口标题
             
             p1, p2 = cfg['affix_points']
             x = min(p1[0], p2[0])

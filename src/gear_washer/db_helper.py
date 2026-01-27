@@ -49,14 +49,23 @@ class SimpleDB:
                 )
             ''')
             
+            # 检查 equipment_type 表是否有 window_title 列（迁移旧数据）
+            try:
+                cursor.execute('ALTER TABLE equipment_type ADD COLUMN window_title TEXT')
+                print("DEBUG: 已添加 window_title 列到 equipment_type 表")
+            except sqlite3.OperationalError:
+                # 列已存在
+                pass
+            
             conn.commit()
 
-    def save_equipment_type(self, name, gear_pos, affix_points):
+    def save_equipment_type(self, name, gear_pos, affix_points, window_title=None):
         """
         保存装备类型配置
         :param name: 装备名称 (如 '法杖', '项链')
-        :param gear_pos: (x, y) 元组
-        :param affix_points: ((x1, y1), (x2, y2)) 元组
+        :param gear_pos: (x, y) 元组 (如果是相对坐标模式，这里是 offset)
+        :param affix_points: ((x1, y1), (x2, y2)) 元组 (相对 offset)
+        :param window_title: 绑定的窗口标题，如果为None则表示绝对坐标
         """
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.cursor()
@@ -64,8 +73,8 @@ class SimpleDB:
             # 但这里为了简单，如果名字一样就更新属性
             cursor.execute('''
                 INSERT INTO equipment_type 
-                (name, gear_pos_x, gear_pos_y, affix_area_p1_x, affix_area_p1_y, affix_area_p2_x, affix_area_p2_y)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                (name, gear_pos_x, gear_pos_y, affix_area_p1_x, affix_area_p1_y, affix_area_p2_x, affix_area_p2_y, window_title)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(name) DO UPDATE SET
                     gear_pos_x=excluded.gear_pos_x,
                     gear_pos_y=excluded.gear_pos_y,
@@ -73,12 +82,14 @@ class SimpleDB:
                     affix_area_p1_y=excluded.affix_area_p1_y,
                     affix_area_p2_x=excluded.affix_area_p2_x,
                     affix_area_p2_y=excluded.affix_area_p2_y,
+                    window_title=excluded.window_title,
                     updated_at=CURRENT_TIMESTAMP
             ''', (
                 name, 
                 gear_pos[0], gear_pos[1], 
                 affix_points[0][0], affix_points[0][1],
-                affix_points[1][0], affix_points[1][1]
+                affix_points[1][0], affix_points[1][1],
+                window_title
             ))
             conn.commit()
 
@@ -86,15 +97,24 @@ class SimpleDB:
         """通过ID获取配置"""
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.cursor()
+            # 这里可能会失败如果SELECT * 顺序变了，最好指名字段，但简单起见我们把新列加在最后
             cursor.execute('SELECT * FROM equipment_type WHERE id = ?', (type_id,))
             row = cursor.fetchone()
             if row:
-                # row: id, name, gx, gy, ax1, ay1, ax2, ay2, updated_at
+                # row: id, name, gx, gy, ax1, ay1, ax2, ay2, updated_at, [window_title]
+                # 注意：updated_at 是第9列(index 8)，新列是第10列(index 9)
+                # 因为 sqlite 的 ALTER TABLE ADD COLUMN 是加在末尾
+                
+                # 稳妥起见，我们重新查询一次带列名的
+                cursor.execute('SELECT id, name, gear_pos_x, gear_pos_y, affix_area_p1_x, affix_area_p1_y, affix_area_p2_x, affix_area_p2_y, window_title FROM equipment_type WHERE id = ?', (type_id,))
+                specific_row = cursor.fetchone()
+                
                 return {
-                    'id': row[0],
-                    'name': row[1],
-                    'gear_pos': (row[2], row[3]),
-                    'affix_points': ((row[4], row[5]), (row[6], row[7]))
+                    'id': specific_row[0],
+                    'name': specific_row[1],
+                    'gear_pos': (specific_row[2], specific_row[3]),
+                    'affix_points': ((specific_row[4], specific_row[5]), (specific_row[6], specific_row[7])),
+                    'window_title': specific_row[8] if len(specific_row) > 8 else None
                 }
             return None
 

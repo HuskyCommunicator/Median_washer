@@ -74,7 +74,8 @@ def main():
             if cfg:
                 pos_data = {
                     'gear_pos': cfg['gear_pos'],
-                    'affix_points': cfg['affix_points']
+                    'affix_points': cfg['affix_points'],
+                    'window_title': cfg.get('window_title')
                 }
             else:
                 print("读取错误，需重新定位。")
@@ -102,7 +103,8 @@ def main():
         db.save_equipment_type(
             name=selected_item_name,
             gear_pos=pos_data['gear_pos'],
-            affix_points=pos_data['affix_points']
+            affix_points=pos_data['affix_points'],
+            window_title=pos_data.get('window_title')
         )
         
         print(f"已保存配置: [{selected_item_name}]")
@@ -110,6 +112,7 @@ def main():
     # 应用位置配置
     if pos_data:
         washer.gear_pos = pos_data['gear_pos']
+        washer.window_title = pos_data.get('window_title')
         # 计算 affix_region
         p1, p2 = pos_data['affix_points']
         washer.affix_region = calculate_rect(p1, p2)
