@@ -129,11 +129,11 @@ def main():
     # 构建所有选项列表: (display_name, content)
     all_options = []
     
-    # 1. 来自 config/affix_config.py 的默认配置
-    if DEFAULT_CONFIGS:
-        for name, cond in DEFAULT_CONFIGS.items():
-            all_options.append((f"[文件] {name}", cond))
-            
+    # 0. 尝试导入默认配置 (如果需要)
+    # 命令行版本也移除自动导入，防止干扰GUI操作
+    # if DEFAULT_CONFIGS:
+    #    db.migrate_defaults(DEFAULT_CONFIGS)
+
     # 2. 来自数据库的配置
     for aff_id, content, desc in affix_list:
         display = desc if desc else f"词缀组_{aff_id}"

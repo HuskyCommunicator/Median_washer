@@ -59,6 +59,53 @@ class SimpleDB:
             
             conn.commit()
 
+    def migrate_defaults(self, default_configs):
+        """
+        将文件默认配置迁移到数据库，只运行一次或在数据库为空时运行。
+        这里使用 description (key in defaults) 来判断是否存在，避免重复添加。
+        """
+        if not default_configs:
+            return
+            
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            
+            for desc, content in default_configs.items():
+                # 检查是否已存在同名规则
+                cursor.execute('SELECT id FROM affix WHERE description = ?', (desc,))
+                row = cursor.fetchone()
+                
+                # 如果不存在，则插入
+                # 为了防止 content 冲突 (unique)，我们先查一下 content
+                
+                # 注意：affix表定义 content TEXT UNIQUE, description TEXT
+                # 如果用户修改了同名规则，content 变了，不冲突。
+                # 如果已经有一模一样的 content，则可能是另一个名字。
+                
+                if not row:
+                    # 尝试插入
+                    # 但需要处理 content UNIQUE 约束。如果 content 已存在但名字不同，我们可以不管，或者新建一份。
+                    # 如果 content 相同名字也相同，前面 select id where description 已经过滤了。
+                    # 如果 content 相同名字不同... 这里设计有点问题，但通常默认配置 content 不会重复。
+                    
+                    # 转 JSON 字符串
+                    content_str = content
+                    if isinstance(content, (dict, list)):
+                        content_str = json.dumps(content, ensure_ascii=False)
+                        
+                    try:
+                        cursor.execute('INSERT INTO affix (content, description) VALUES (?, ?)', (content_str, desc))
+                        print(f"DEBUG: 已迁移默认规则 [{desc}] 到数据库")
+                    except sqlite3.IntegrityError:
+                        # content 重复 (UNIQUE constraint failed)
+                        # 这种情况可能是用户已经有了一个一模一样的规则但名字不一样。
+                        # 为了"所有规则可修改"，我们希望这个默认名字也能出现。
+                        # 暂时先跳过，或者 append 一个空格绕过 UNIQUE? (不推荐hack)
+                        print(f"DEBUG: 规则内容重复，跳过迁移 [{desc}]")
+                        pass
+            
+            conn.commit()
+
     def save_equipment_type(self, name, gear_pos, affix_points, window_title=None):
         """
         保存装备类型配置

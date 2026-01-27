@@ -153,6 +153,9 @@ class App(ctk.CTk):
         self.frame_btns.grid(row=1, column=0, columnspan=2, padx=10, pady=5, sticky="ew")
         
         # 按钮布局优化：编辑 -> 覆盖 -> 另存 -> 重命名 -> 删除
+        self.btn_load_def = ctk.CTkButton(self.frame_btns, text="导入默认规则", width=100, fg_color="#333333", command=self.load_defaults)
+        self.btn_load_def.pack(side="left", padx=5)
+
         self.btn_advanced = ctk.CTkButton(self.frame_btns, text="编辑规则详情", width=120, fg_color="#555555", command=self.open_advanced_editor)
         self.btn_advanced.pack(side="left", padx=5)
 
@@ -233,29 +236,13 @@ class App(ctk.CTk):
         else:
             self.combo_equip.set("无配置")
             
-        # 2. 加载词缀
+        # 2. 规则数据
+        # 2.1 加载所有规则 (只从DB加载)
         self.affix_data_map = {} # name -> content
         self.affix_id_map = {}   # name -> id (for DB items)
-        self.affix_source_map = {} # name -> 'FILE' or 'DB'
+        self.affix_source_map = {} # name -> 'DB' (all editable)
         affix_names = []
         
-        # 2.1 文件默认 (去掉前缀，处理重名)
-        if DEFAULT_CONFIGS:
-            for name, content in DEFAULT_CONFIGS.items():
-                display = name
-                # 如果数据库里有叫 "默认_项链" 的，这里就会冲突。
-                # 简单处理：如果已存在，加后缀。
-                orig_display = display
-                idx = 1
-                while display in self.affix_data_map:
-                    display = f"{orig_display} ({idx})"
-                    idx += 1
-                    
-                self.affix_data_map[display] = content
-                self.affix_source_map[display] = 'FILE'
-                affix_names.append(display)
-                
-        # 2.2 数据库 (去掉前缀，处理重名)
         db_affixes = self.db.get_all_affixes() # [(id, content, desc), ...]
         for aid, content, desc in db_affixes:
             display = desc if desc else f"规则_{aid}"
@@ -323,12 +310,8 @@ class App(ctk.CTk):
             return
             
         choice = self.combo_affix.get()
-        source = self.current_affix_source
+        # 现在的 source 应该都是 'DB'，除非出错
         
-        if source == 'FILE':
-            print("错误：文件默认配置无法覆盖，请使用【另存为新规则】")
-            return
-            
         # DB 配置
         if self.current_affix_id is not None:
             # 这里的 choice 已经是纯名称
@@ -341,7 +324,7 @@ class App(ctk.CTk):
             else:
                 print("更新失败，可能是内容冲突或数据库错误。")
         else:
-            print("无法确定规则来源，无法覆盖。")
+            print("错误：无法覆盖未保存的规则，请先保存为新规则。")
 
     def save_new_rule(self):
         """保存为新规则"""
@@ -368,11 +351,6 @@ class App(ctk.CTk):
         choice = self.combo_affix.get()
         if not choice: return
         
-        source = self.current_affix_source
-        if source == 'FILE':
-            print("错误：无法重命名文件默认配置，请使用【另存为新规则】。")
-            return
-            
         if self.current_affix_id is None: return
 
         import customtkinter as ctk 
@@ -396,11 +374,6 @@ class App(ctk.CTk):
         choice = self.combo_affix.get()
         if not choice: return
         
-        source = self.current_affix_source
-        if source == 'FILE':
-            print("错误：无法删除默认的文件配置。")
-            return
-            
         if self.current_affix_id is None:
             return
 
@@ -410,8 +383,22 @@ class App(ctk.CTk):
             self.db.delete_affix(self.current_affix_id)
             print(f"规则 [{choice}] 已删除。")
             self._load_data()
+            if not self.combo_affix.get() or self.combo_affix.get() == choice:
+                 # 清空选择或选第一个
+                 pass # _load_data 会处理
         except Exception as e:
             print(f"删除失败: {e}")
+
+    def load_defaults(self):
+        """手动导入默认规则"""
+        if not DEFAULT_CONFIGS:
+            print("错误：配置文件中没有默认规则。")
+            return
+            
+        print("正在导入默认规则到数据库...")
+        self.db.migrate_defaults(DEFAULT_CONFIGS)
+        print("导入完成！")
+        self._load_data()
 
     # ================= 装备相关操作 =================
 
