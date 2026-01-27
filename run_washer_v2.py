@@ -76,17 +76,6 @@ def main():
                     'gear_pos': cfg['gear_pos'],
                     'affix_points': cfg['affix_points']
                 }
-                # 尝试加载全局洗炼按钮位置
-                global_btn = db.get("global_wash_button_pos")
-                if global_btn:
-                    pos_data['wash_button'] = tuple(global_btn)
-                else:
-                    print("警告：未找到洗炼按钮位置，可能需要重新定位。")
-                    re_cal = input("是否需要重新定位此物品及按钮? (y/n) [n]: ").strip().lower()
-                    if re_cal == 'y':
-                        need_calibrate = True
-                    else:
-                        print("请务必确保已在别处设置过按钮位置，否则可能出错。")
             else:
                 print("读取错误，需重新定位。")
                 need_calibrate = True
@@ -106,36 +95,21 @@ def main():
         need_calibrate = True
 
     if need_calibrate:
-        # 调用交互式定位，获取 装备位置、词缀区域、洗炼按钮
+        # 调用交互式定位，获取 装备位置、词缀区域
         pos_data = washer.calibrate_ui()
         
         # 存入数据库
-        # 1. 存装备类型
         db.save_equipment_type(
             name=selected_item_name,
             gear_pos=pos_data['gear_pos'],
             affix_points=pos_data['affix_points']
         )
-        # 2. 存全局按钮位置
-        db.set("global_wash_button_pos", pos_data['wash_button'])
         
-        print(f"已保存配置: [{selected_item_name}] 及全局洗炼按钮位置。")
+        print(f"已保存配置: [{selected_item_name}]")
     
     # 应用位置配置
     if pos_data:
         washer.gear_pos = pos_data['gear_pos']
-        # 确保有按钮位置
-        if 'wash_button' in pos_data:
-            washer.wash_button_pos = pos_data['wash_button']
-        else:
-            # 再次尝试获取全局
-            global_btn = db.get("global_wash_button_pos")
-            if global_btn:
-                washer.wash_button_pos = tuple(global_btn)
-            else:
-                print("错误：缺失洗炼按钮位置，请重新运行并新建配置以设定按钮。")
-                return
-
         # 计算 affix_region
         p1, p2 = pos_data['affix_points']
         washer.affix_region = calculate_rect(p1, p2)

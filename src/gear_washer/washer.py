@@ -22,7 +22,7 @@ class GearWasher:
         self.wash_button_pos = None # (x, y) 洗炼按钮位置
         self.conditions = None
         self.max_attempts = 1000
-        self.interval = 1.0 # 每次洗炼间隔(秒)
+        self.interval = 0.2 # 每次洗炼间隔(秒) - 默认加快速度
         
         # 中止信号标志位
         self.stop_requested = False
@@ -95,15 +95,11 @@ class GearWasher:
         p1 = (x1, y1)
         p2 = (x2, y2)
 
-        # 3. 设置洗炼按钮位置
-        print("\n[3/3] 请将鼠标移动到【洗炼按钮中心】...")
-        bx, by = wait_func()
-        print(f"洗炼按钮位置已设置为: {(bx, by)}")
+        print("\n[3/3] 完成！鼠标将停留在装备位置，按Z键进行洗炼。")
         
         return {
             "gear_pos": (gx, gy),
-            "affix_points": (p1, p2),
-            "wash_button": (bx, by)
+            "affix_points": (p1, p2)
         }
 
     def setup_wizard(self):
@@ -119,10 +115,9 @@ class GearWasher:
         w = abs(p2[0] - p1[0])
         h = abs(p2[1] - p1[1])
         self.affix_region = (x, y, w, h)
-        self.wash_button_pos = data['wash_button']
 
         # 4. 设置目标词缀
-        print("\n[4/4] 设置目标词缀逻辑")
+        print("\n[3/3] 设置目标词缀逻辑")
 
         # 4. 设置目标词缀
         print("\n[4/4] 设置目标词缀逻辑")
@@ -165,7 +160,7 @@ class GearWasher:
         return False
 
     def run(self):
-        if not self.affix_region or not self.wash_button_pos or not self.gear_pos:
+        if not self.affix_region or not self.gear_pos:
             print("错误: 未配置区域，请先运行 setup_wizard()")
             return
 
@@ -174,7 +169,7 @@ class GearWasher:
         print("请在该窗口激活游戏/应用，然后不要移动鼠标干扰操作...")
         
         # 启动等待也可以被打断
-        if self._smart_sleep(3): 
+        if self._smart_sleep(1.0): 
             print("启动被打断。")
             return
 
@@ -185,13 +180,14 @@ class GearWasher:
             print(f"\n--- 第 {i+1} 次尝试 ---")
             
             # 1. 移动到装备位置，显示浮窗
-            pyautogui.moveTo(self.gear_pos[0], self.gear_pos[1], duration=0.2)
+            # 使用 duration=0 瞬间移动，确保鼠标在位
+            pyautogui.moveTo(self.gear_pos[0], self.gear_pos[1], duration=0)
             
             # --- 阶段性检查 2 (移动后) ---
             if self._check_stop(): break
 
-            # 等待浮窗显示 (使用智能等待替换 sleep)
-            if self._smart_sleep(0.5): break
+            # 等待浮窗显示 (缩短等待时间)
+            if self._smart_sleep(0.1): break
 
             # 2. 识别当前属性
             # 文字识别通常比较耗时，识别前确认一下
@@ -223,12 +219,12 @@ class GearWasher:
                 ctypes.windll.user32.MessageBoxW(0, f'洗炼完成！\n已匹配到目标属性:\n{self.conditions}', '装备洗炼助手', 0x40 | 0x1000)
                 break
             
-            # 4. 不满足，点击洗炼
-            print("未匹配，继续洗炼...")
-            # 先移动到洗炼按钮位置，再点击
-            pyautogui.moveTo(self.wash_button_pos[0], self.wash_button_pos[1], duration=0.2)
-            time.sleep(0.1)  # 稍微等待确保鼠标到位
-            pyautogui.click()  # 在当前位置点击
+            # 4. 不满足，按Z键洗炼（鼠标保持在装备位置）
+            print("未匹配，按Z键洗炼...")
+            if keyboard:
+                keyboard.press_and_release('z')
+            else:
+                pyautogui.press('z')
             
             # 5. 等待动画或刷新
             # 将原本的 sleep(self.interval) 换成智能等待

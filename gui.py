@@ -499,7 +499,6 @@ class App(ctk.CTk):
                     gear_pos=pos_data['gear_pos'],
                     affix_points=pos_data['affix_points']
                 )
-                self.db.set("global_wash_button_pos", pos_data['wash_button'])
                 
                 print(f"配置 [{name}] 保存成功！请手动重启程序或刷新列表。")
                 self.after(0, self._load_data) 
@@ -549,17 +548,11 @@ class App(ctk.CTk):
                 print(f"错误：找不到装备 [{equip_name}] 的数据库记录")
                 return
                 
-            wash_btn = self.db.get("global_wash_button_pos")
-            if not wash_btn:
-                print("错误：未找到全局洗炼按钮坐标，请尝试【新建/定位】一次")
-                return
-            
             print(f"OCR设置：调试模式 {'ON' if self.debug_mode_var.get() else 'OFF'}")
                 
             self.washer = GearWasher(tesseract_cmd=self.ocr_path, 
                                     debug_mode=self.debug_mode_var.get())
             self.washer.gear_pos = cfg['gear_pos']
-            self.washer.wash_button_pos = tuple(wash_btn)
             
             p1, p2 = cfg['affix_points']
             x = min(p1[0], p2[0])
