@@ -232,43 +232,53 @@ class App(ctk.CTk):
         """初始化规则管理 Tab"""
         tr = self.tab_rule
         
-        ctk.CTkLabel(tr, text="管理OCR识别规则与逻辑", font=("Microsoft YaHei", 14, "bold"), text_color="silver").pack(pady=10)
+        # 顶部标题
+        ctk.CTkLabel(tr, text="词缀规则管理中心", font=("Microsoft YaHei", 16, "bold"), text_color="silver").pack(pady=(15, 5))
         
+        # 1. 规则选择区
         self.frame_rule_card = ctk.CTkFrame(tr)
-        self.frame_rule_card.pack(fill="x", padx=20, pady=10)
+        self.frame_rule_card.pack(fill="x", padx=15, pady=5)
         
-        ctk.CTkLabel(self.frame_rule_card, text="选择要编辑的规则:").pack(pady=5)
-        self.combo_affix_mgr = ctk.CTkComboBox(self.frame_rule_card, width=300, command=self.on_affix_mgr_change)
-        self.combo_affix_mgr.pack(pady=10)
+        ctk.CTkLabel(self.frame_rule_card, text="当前编辑的规则:").pack(pady=(10, 2))
+        self.combo_affix_mgr = ctk.CTkComboBox(self.frame_rule_card, width=320, command=self.on_affix_mgr_change)
+        self.combo_affix_mgr.pack(pady=5)
         
         # 简易预览
         self.lbl_rule_preview = ctk.CTkLabel(self.frame_rule_card, text="规则内容预览...", text_color="gray", font=("Consolas", 10))
-        self.lbl_rule_preview.pack(pady=5)
+        self.lbl_rule_preview.pack(pady=(0, 10))
 
-        # 按钮区
+        # 2. 核心操作区
         self.frame_rule_ops = ctk.CTkFrame(tr, fg_color="transparent")
-        self.frame_rule_ops.pack(fill="x", padx=20, pady=10)
+        self.frame_rule_ops.pack(fill="x", padx=15, pady=5)
         
-        # 第一排
-        self.btn_advanced = ctk.CTkButton(self.frame_rule_ops, text="📝 编辑详情(JSON)", width=140, height=35, fg_color="#555555", command=self.open_advanced_editor)
-        self.btn_advanced.grid(row=0, column=0, padx=5, pady=5)
+        # 使用 grid 布局，3列2行，更紧凑
+        self.frame_rule_ops.grid_columnconfigure(0, weight=1)
+        self.frame_rule_ops.grid_columnconfigure(1, weight=1)
+        self.frame_rule_ops.grid_columnconfigure(2, weight=1)
         
-        self.btn_save_overwrite = ctk.CTkButton(self.frame_rule_ops, text="💾 覆盖保存", width=140, height=35, fg_color="#FFA500", command=self.save_overwrite_rule)
-        self.btn_save_overwrite.grid(row=0, column=1, padx=5, pady=5)
+        # 第1行：编辑与保存
+        self.btn_advanced = ctk.CTkButton(self.frame_rule_ops, text="📝 编辑详情(JSON)", height=35, fg_color="#555555", command=self.open_advanced_editor)
+        self.btn_advanced.grid(row=0, column=0, columnspan=2, padx=5, pady=5, sticky="ew") # 跨两列
+        
+        self.btn_save_overwrite = ctk.CTkButton(self.frame_rule_ops, text="💾 保存修改", height=35, fg_color="#FFA500", command=self.save_overwrite_rule)
+        self.btn_save_overwrite.grid(row=0, column=2, padx=5, pady=5, sticky="ew")
 
-        # 第二排
-        self.btn_save_new = ctk.CTkButton(self.frame_rule_ops, text="📄 另存为新规则", width=140, height=35, command=self.save_new_rule)
-        self.btn_save_new.grid(row=1, column=0, padx=5, pady=5)
+        # 第2行：管理操作
+        self.btn_save_new = ctk.CTkButton(self.frame_rule_ops, text="➕ 另存为新规则", width=120, height=35, command=self.save_new_rule)
+        self.btn_save_new.grid(row=1, column=0, padx=5, pady=5, sticky="ew")
         
-        self.btn_rename_rule = ctk.CTkButton(self.frame_rule_ops, text="✎ 重命名", width=140, height=35, fg_color="#FFA500", command=self.rename_current_rule)
-        self.btn_rename_rule.grid(row=1, column=1, padx=5, pady=5)
+        self.btn_rename_rule = ctk.CTkButton(self.frame_rule_ops, text="✎ 重命名", width=120, height=35, fg_color="#FFA500", command=self.rename_current_rule)
+        self.btn_rename_rule.grid(row=1, column=1, padx=5, pady=5, sticky="ew")
         
-        # 第三排
-        self.btn_load_def = ctk.CTkButton(self.frame_rule_ops, text="📥 导入默认库", width=140, height=35, fg_color="#333333", command=self.load_defaults)
-        self.btn_load_def.grid(row=2, column=0, padx=5, pady=5)
-
-        self.btn_delete_rule = ctk.CTkButton(self.frame_rule_ops, text="🗑 删除此规则", width=140, height=35, fg_color="darkred", command=self.delete_current_rule)
-        self.btn_delete_rule.grid(row=2, column=1, padx=5, pady=5)
+        self.btn_delete_rule = ctk.CTkButton(self.frame_rule_ops, text="🗑 删除", width=80, height=35, fg_color="darkred", command=self.delete_current_rule)
+        self.btn_delete_rule.grid(row=1, column=2, padx=5, pady=5, sticky="ew")
+        
+        # 第3行：导入导出工具
+        self.frame_tools = ctk.CTkFrame(tr, fg_color="transparent")
+        self.frame_tools.pack(fill="x", padx=15, pady=5)
+        
+        self.btn_load_def = ctk.CTkButton(self.frame_tools, text="📥 导入默认规则库", width=200, height=30, fg_color="#333333", command=self.load_defaults)
+        self.btn_load_def.pack(side="top", pady=5)
 
     def _init_tab_setting(self):
         """初始化系统设置 Tab"""
