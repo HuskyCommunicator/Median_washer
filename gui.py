@@ -110,104 +110,199 @@ class App(ctk.CTk):
             self.after(0, self.start_washing)
 
     def _init_ui(self):
-        # 1. 装备选择区域
-        self.frame_top = ctk.CTkFrame(self)
-        self.frame_top.grid(row=0, column=0, columnspan=2, padx=10, pady=10, sticky="ew")
+        # 使用 TabView 进行主要布局
+        self.tab_view = ctk.CTkTabview(self)
+        self.tab_view.grid(row=0, column=0, columnspan=2, padx=10, pady=5, sticky="nsew")
+        self.grid_rowconfigure(0, weight=1) # TabView 区域自适应高度
+        self.grid_rowconfigure(1, weight=0) # 状态栏高度固定
+
+        # 创建 Tabs
+        self.tab_run = self.tab_view.add("运行控制")
+        self.tab_equip = self.tab_view.add("装备管理")
+        self.tab_rule = self.tab_view.add("规则管理")
+        self.tab_setting = self.tab_view.add("系统设置")
         
-        # Row 0: Label + ComboBox
-        self.lbl_equip = ctk.CTkLabel(self.frame_top, text="选择装备配置:", font=("Microsoft YaHei", 14, "bold"))
-        self.lbl_equip.grid(row=0, column=0, padx=10, pady=10)
+        # --- TAB 1: 运行控制 ---
+        self._init_tab_run()
+
+        # --- TAB 2: 装备管理 ---
+        self._init_tab_equip()
         
-        self.combo_equip = ctk.CTkComboBox(self.frame_top, width=300, command=self.on_equip_change)
-        self.combo_equip.grid(row=0, column=1, padx=10, pady=10, sticky="w")
+        # --- TAB 3: 规则管理 ---
+        self._init_tab_rule()
         
-        # Row 1: Buttons
-        self.frame_top_btns = ctk.CTkFrame(self.frame_top, fg_color="transparent")
-        self.frame_top_btns.grid(row=1, column=0, columnspan=2, padx=10, pady=5, sticky="ew")
+        # --- TAB 4: 系统设置 ---
+        self._init_tab_setting()
 
-        self.btn_new_equip = ctk.CTkButton(self.frame_top_btns, text="新建", width=80, command=self.new_equip_flow)
-        self.btn_new_equip.pack(side="left", padx=5)
+        # 公共日志区域 (放在 TabView 下方)
+        self.log_frame = ctk.CTkFrame(self)
+        self.log_frame.grid(row=1, column=0, columnspan=2, padx=10, pady=5, sticky="nsew")
+        self.grid_rowconfigure(1, weight=1) # 增加日志区域权重
 
-        self.btn_edit_equip = ctk.CTkButton(self.frame_top_btns, text="编辑/定位", width=100, fg_color="#555555", command=self.edit_current_equip)
-        self.btn_edit_equip.pack(side="left", padx=5)
+        self.lbl_log_title = ctk.CTkLabel(self.log_frame, text="运行日志", font=("Microsoft YaHei", 12))
+        self.lbl_log_title.pack(anchor="w", padx=5, pady=2)
+
+        self.log_box = ctk.CTkTextbox(self.log_frame, font=("Consolas", 12), height=150)
+        self.log_box.pack(fill="both", expand=True, padx=5, pady=5)
         
-        self.btn_rename_equip = ctk.CTkButton(self.frame_top_btns, text="重命名", width=80, fg_color="#FFA500", command=self.rename_current_equip)
-        self.btn_rename_equip.pack(side="left", padx=5)
+        # 底部状态栏
+        self.status_bar = ctk.CTkFrame(self, height=25)
+        self.status_bar.grid(row=2, column=0, columnspan=2, sticky="ew", padx=10, pady=2)
         
-        self.btn_delete_equip = ctk.CTkButton(self.frame_top_btns, text="删除", width=80, fg_color="darkred", command=self.delete_current_equip)
-        self.btn_delete_equip.pack(side="left", padx=5)
-
-        # 2. 词缀选择区域
-        self.frame_mid = ctk.CTkFrame(self)
-        self.frame_mid.grid(row=1, column=0, columnspan=2, padx=10, pady=5, sticky="ew")
-
-        # 修改 label
-        self.lbl_affix = ctk.CTkLabel(self.frame_mid, text="选择规则:", font=("Microsoft YaHei", 14, "bold"))
-        self.lbl_affix.grid(row=0, column=0, padx=10, pady=10)
-
-        self.combo_affix = ctk.CTkComboBox(self.frame_mid, width=300, command=self.on_affix_change)
-        self.combo_affix.grid(row=0, column=1, padx=10, pady=10, sticky="w")
-        
-        # 操作按钮区 (Row 1)
-        self.frame_btns = ctk.CTkFrame(self.frame_mid, fg_color="transparent")
-        self.frame_btns.grid(row=1, column=0, columnspan=2, padx=10, pady=5, sticky="ew")
-        
-        # 按钮布局优化：编辑 -> 覆盖 -> 另存 -> 重命名 -> 删除
-        self.btn_load_def = ctk.CTkButton(self.frame_btns, text="导入默认规则", width=100, fg_color="#333333", command=self.load_defaults)
-        self.btn_load_def.pack(side="left", padx=5)
-
-        self.btn_advanced = ctk.CTkButton(self.frame_btns, text="编辑规则详情", width=120, fg_color="#555555", command=self.open_advanced_editor)
-        self.btn_advanced.pack(side="left", padx=5)
-
-        self.btn_save_overwrite = ctk.CTkButton(self.frame_btns, text="覆盖保存", width=100, fg_color="#FFA500", command=self.save_overwrite_rule)
-        self.btn_save_overwrite.pack(side="left", padx=5)
-
-        self.btn_save_new = ctk.CTkButton(self.frame_btns, text="另存为新规则", width=100, command=self.save_new_rule)
-        self.btn_save_new.pack(side="left", padx=5)
-        
-        self.btn_rename_rule = ctk.CTkButton(self.frame_btns, text="重命名", width=100, fg_color="#FFA500", command=self.rename_current_rule)
-        self.btn_rename_rule.pack(side="left", padx=5)
-
-        self.btn_delete_rule = ctk.CTkButton(self.frame_btns, text="删除本规则", width=100, fg_color="darkred", command=self.delete_current_rule)
-        self.btn_delete_rule.pack(side="left", padx=5)
-
-        # 3. 控制按钮和OCR设置
-        self.frame_ctrl = ctk.CTkFrame(self)
-        self.frame_ctrl.grid(row=2, column=0, columnspan=2, padx=10, pady=10, sticky="ew")
-
-        # 按钮容器
-        self.frame_ctrl_btns = ctk.CTkFrame(self.frame_ctrl, fg_color="transparent")
-        self.frame_ctrl_btns.pack(fill="x", padx=5, pady=5)
-
-        self.btn_start = ctk.CTkButton(self.frame_ctrl_btns, text="开始洗炼", command=self.start_washing, 
-                                       fg_color="green", hover_color="darkgreen", height=40, font=("Microsoft YaHei", 16))
-        self.btn_start.pack(side="left", expand=True, fill="x", padx=10, pady=5)
-
-        self.btn_stop = ctk.CTkButton(self.frame_ctrl_btns, text="停止", command=self.stop_washing, 
-                                      fg_color="red", hover_color="darkred", height=40, font=("Microsoft YaHei", 16), state="disabled")
-        self.btn_stop.pack(side="left", expand=True, fill="x", padx=10, pady=5)
-        
-        # OCR设置容器
-        self.frame_ocr_settings = ctk.CTkFrame(self.frame_ctrl, fg_color="transparent")
-        self.frame_ocr_settings.pack(fill="x", padx=5, pady=5)
-        
-        # 调试模式复选框
-        self.debug_mode_var = ctk.BooleanVar(value=False)
-        self.check_debug = ctk.CTkCheckBox(self.frame_ocr_settings, text="调试模式 (保存OCR图片)", variable=self.debug_mode_var, 
-                                          font=("Microsoft YaHei", 12))
-        self.check_debug.pack(side="left", padx=10)
-
-        # 4. 日志区域
-        self.log_box = ctk.CTkTextbox(self, font=("Consolas", 12))
-        self.log_box.grid(row=3, column=0, columnspan=2, padx=10, pady=10, sticky="nsew")
-        
-        # 状态栏
-        self.lbl_status = ctk.CTkLabel(self, text="就绪 (按END开始/HOME停止)", text_color="gray")
-        self.lbl_status.grid(row=4, column=0, columnspan=2, sticky="w", padx=10)
+        self.lbl_status = ctk.CTkLabel(self.status_bar, text="就绪 (快捷键: END开始 / HOME停止)", text_color="gray", font=("Microsoft YaHei", 12))
+        self.lbl_status.pack(side="left", padx=10)
 
         # 重定向输出
         self.redirector = TextRedirector(self.log_box)
         sys.stdout = self.redirector
+
+    def _init_tab_run(self):
+        """初始化运行 Tab"""
+        tr = self.tab_run
+        tr.grid_columnconfigure(1, weight=1)
+        
+        # 选择装备
+        ctk.CTkLabel(tr, text="当前装备:", font=("Microsoft YaHei", 14)).grid(row=0, column=0, padx=20, pady=20, sticky="e")
+        self.combo_equip = ctk.CTkComboBox(tr, width=250, command=self.on_equip_change)
+        self.combo_equip.grid(row=0, column=1, padx=20, pady=20, sticky="w")
+        
+        # 选择规则
+        ctk.CTkLabel(tr, text="当前规则:", font=("Microsoft YaHei", 14)).grid(row=1, column=0, padx=20, pady=20, sticky="e")
+        self.combo_affix = ctk.CTkComboBox(tr, width=250, command=self.on_affix_change)
+        self.combo_affix.grid(row=1, column=1, padx=20, pady=20, sticky="w")
+        
+        # 开始/停止 按钮区
+        self.frame_run_btns = ctk.CTkFrame(tr, fg_color="transparent")
+        self.frame_run_btns.grid(row=2, column=0, columnspan=2, pady=30)
+        
+        self.btn_start = ctk.CTkButton(self.frame_run_btns, text="▶ 开始洗炼", command=self.start_washing, 
+                                       fg_color="green", hover_color="darkgreen", width=140, height=50, font=("Microsoft YaHei", 16, "bold"))
+        self.btn_start.pack(side="left", padx=20)
+
+        self.btn_stop = ctk.CTkButton(self.frame_run_btns, text="⏹ 停止运行", command=self.stop_washing, 
+                                      fg_color="red", hover_color="darkred", width=140, height=50, font=("Microsoft YaHei", 16, "bold"), state="disabled")
+        self.btn_stop.pack(side="left", padx=20)
+        
+        # 提示信息
+        ctk.CTkLabel(tr, text="提示: 开始后请不要操作鼠标，按 HOME 键可紧急停止", text_color="gray").grid(row=3, column=0, columnspan=2, pady=10)
+
+    def _init_tab_equip(self):
+        """初始化装备管理 Tab"""
+        te = self.tab_equip
+        te.grid_columnconfigure(0, weight=1)
+        te.grid_rowconfigure(0, weight=1) # 内容区自适应
+        
+        # 顶部提示
+        ctk.CTkLabel(te, text="管理已保存的装备定位配置", font=("Microsoft YaHei", 14, "bold"), text_color="silver").pack(pady=10)
+
+        # 列表代替 ComboBox，更直观
+        # 由于 CustomTkinter 没有 Listbox，我们用 ScrollableFrame + Buttons 模拟，或者复用 ComboBox 逻辑方便点
+        # 这里为了美观，我们简化为：上方是一个装备详情卡片，下方是操作按钮
+        
+        self.frame_equip_card = ctk.CTkFrame(te)
+        self.frame_equip_card.pack(fill="x", padx=20, pady=10)
+        
+        ctk.CTkLabel(self.frame_equip_card, text="在下拉框中选择要操作的装备:").pack(pady=5)
+        self.combo_equip_mgr = ctk.CTkComboBox(self.frame_equip_card, width=300, command=None) # 这里只需要同步数据
+        self.combo_equip_mgr.pack(pady=10)
+        
+        # 操作按钮区
+        self.frame_equip_ops = ctk.CTkFrame(te, fg_color="transparent")
+        self.frame_equip_ops.pack(fill="x", padx=20, pady=20)
+        
+        # 第一排：主要操作
+        self.btn_new_equip = ctk.CTkButton(self.frame_equip_ops, text="✚ 新建配置", width=120, height=35, command=self.new_equip_flow)
+        self.btn_new_equip.grid(row=0, column=0, padx=10, pady=10)
+
+        self.btn_edit_equip = ctk.CTkButton(self.frame_equip_ops, text="🎯 重新定位", width=120, height=35, fg_color="#555555", command=self.edit_current_equip)
+        self.btn_edit_equip.grid(row=0, column=1, padx=10, pady=10)
+        
+        # 第二排：次要操作
+        self.btn_rename_equip = ctk.CTkButton(self.frame_equip_ops, text="✎ 重命名", width=120, height=35, fg_color="#FFA500", command=self.rename_current_equip)
+        self.btn_rename_equip.grid(row=1, column=0, padx=10, pady=10)
+        
+        self.btn_delete_equip = ctk.CTkButton(self.frame_equip_ops, text="🗑 删除配置", width=120, height=35, fg_color="darkred", command=self.delete_current_equip)
+        self.btn_delete_equip.grid(row=1, column=1, padx=10, pady=10)
+        
+        # 底部说明
+        text = "说明：\n1. 【新建】创建一个新的装备配置。\n2. 【重新定位】将重新录制坐标（支持游戏窗口移动）。\n3. 录制时请确保游戏窗口处于激活状态。"
+        ctk.CTkLabel(te, text=text, justify="left", text_color="gray").pack(pady=20)
+
+    def _init_tab_rule(self):
+        """初始化规则管理 Tab"""
+        tr = self.tab_rule
+        
+        ctk.CTkLabel(tr, text="管理OCR识别规则与逻辑", font=("Microsoft YaHei", 14, "bold"), text_color="silver").pack(pady=10)
+        
+        self.frame_rule_card = ctk.CTkFrame(tr)
+        self.frame_rule_card.pack(fill="x", padx=20, pady=10)
+        
+        ctk.CTkLabel(self.frame_rule_card, text="选择要编辑的规则:").pack(pady=5)
+        self.combo_affix_mgr = ctk.CTkComboBox(self.frame_rule_card, width=300, command=self.on_affix_mgr_change)
+        self.combo_affix_mgr.pack(pady=10)
+        
+        # 简易预览
+        self.lbl_rule_preview = ctk.CTkLabel(self.frame_rule_card, text="规则内容预览...", text_color="gray", font=("Consolas", 10))
+        self.lbl_rule_preview.pack(pady=5)
+
+        # 按钮区
+        self.frame_rule_ops = ctk.CTkFrame(tr, fg_color="transparent")
+        self.frame_rule_ops.pack(fill="x", padx=20, pady=10)
+        
+        # 第一排
+        self.btn_advanced = ctk.CTkButton(self.frame_rule_ops, text="📝 编辑详情(JSON)", width=140, height=35, fg_color="#555555", command=self.open_advanced_editor)
+        self.btn_advanced.grid(row=0, column=0, padx=5, pady=5)
+        
+        self.btn_save_overwrite = ctk.CTkButton(self.frame_rule_ops, text="💾 覆盖保存", width=140, height=35, fg_color="#FFA500", command=self.save_overwrite_rule)
+        self.btn_save_overwrite.grid(row=0, column=1, padx=5, pady=5)
+
+        # 第二排
+        self.btn_save_new = ctk.CTkButton(self.frame_rule_ops, text="📄 另存为新规则", width=140, height=35, command=self.save_new_rule)
+        self.btn_save_new.grid(row=1, column=0, padx=5, pady=5)
+        
+        self.btn_rename_rule = ctk.CTkButton(self.frame_rule_ops, text="✎ 重命名", width=140, height=35, fg_color="#FFA500", command=self.rename_current_rule)
+        self.btn_rename_rule.grid(row=1, column=1, padx=5, pady=5)
+        
+        # 第三排
+        self.btn_load_def = ctk.CTkButton(self.frame_rule_ops, text="📥 导入默认库", width=140, height=35, fg_color="#333333", command=self.load_defaults)
+        self.btn_load_def.grid(row=2, column=0, padx=5, pady=5)
+
+        self.btn_delete_rule = ctk.CTkButton(self.frame_rule_ops, text="🗑 删除此规则", width=140, height=35, fg_color="darkred", command=self.delete_current_rule)
+        self.btn_delete_rule.grid(row=2, column=1, padx=5, pady=5)
+
+    def _init_tab_setting(self):
+        """初始化系统设置 Tab"""
+        ts = self.tab_setting
+        
+        self.frame_settings = ctk.CTkFrame(ts)
+        self.frame_settings.pack(fill="both", expand=True, padx=20, pady=20)
+        
+        # 1. 调试模式
+        self.debug_mode_var = ctk.BooleanVar(value=False)
+        self.check_debug = ctk.CTkSwitch(self.frame_settings, text="调试模式 (保存OCR图片到 ocr_debug/)", variable=self.debug_mode_var)
+        self.check_debug.pack(anchor="w", padx=20, pady=20)
+        
+        # 2. 洗炼速度
+        ctk.CTkLabel(self.frame_settings, text="洗炼速度调节 (间隔时间):", font=("Microsoft YaHei", 12, "bold")).pack(anchor="w", padx=20, pady=(10, 0))
+        
+        self.speed_val_label = ctk.CTkLabel(self.frame_settings, text="0.2 秒")
+        self.speed_val_label.pack(anchor="w", padx=40, pady=0)
+        
+        self.slider_speed = ctk.CTkSlider(self.frame_settings, from_=0.1, to=2.0, number_of_steps=19, command=self.on_speed_change)
+        self.slider_speed.set(0.2)
+        self.slider_speed.pack(fill="x", padx=20, pady=10)
+        
+        ctk.CTkLabel(self.frame_settings, text="(越左越快，但也受电脑性能限制)", text_color="gray", font=("Microsoft YaHei", 10)).pack(anchor="w", padx=20)
+        
+        # 版本信息
+        ctk.CTkLabel(self.frame_settings, text="\n\nMedian Washer Pro v2.0\nOptimized for Game Experience", text_color="#555555").pack(side="bottom", pady=20)
+
+    def on_speed_change(self, value):
+        self.speed_val_label.configure(text=f"{value:.1f} 秒")
+
+    def on_affix_mgr_change(self, choice):
+        """Tab3 规则管理选择变化 - 代理给主逻辑"""
+        self.on_affix_change(choice)
 
     def _check_log_queue(self):
         """定期从队列读取日志更新到界面"""
@@ -221,29 +316,35 @@ class App(ctk.CTk):
         self.after(100, self._check_log_queue)
 
     def _load_data(self):
-        """加载下拉框数据"""
+        """加载数据"""
         # 1. 加载装备
-        equips = self.db.list_equipment_types() # [(id, name), ...]
+        equips = self.db.list_equipment_types()
         self.equip_map = {name: eid for eid, name in equips}
         equip_names = [name for _, name in equips]
         
+        # 更新 Tab1 选择框
+        self.combo_equip.configure(values=equip_names)
+        # 更新 Tab2 管理下拉框
+        self.combo_equip_mgr.configure(values=equip_names)
+
         if equip_names:
-            self.combo_equip.configure(values=equip_names)
-            # 尝试恢复选择
             current = self.combo_equip.get()
             if current not in equip_names:
                 self.combo_equip.set(equip_names[0])
+                self.combo_equip_mgr.set(equip_names[0])
+            else:
+                 self.combo_equip_mgr.set(current)
         else:
             self.combo_equip.set("无配置")
-            
+            self.combo_equip_mgr.set("无配置")
+
         # 2. 规则数据
-        # 2.1 加载所有规则 (只从DB加载)
         self.affix_data_map = {} # name -> content
         self.affix_id_map = {}   # name -> id (for DB items)
-        self.affix_source_map = {} # name -> 'DB' (all editable)
+        self.affix_source_map = {} # name -> 'DB'
         affix_names = []
         
-        db_affixes = self.db.get_all_affixes() # [(id, content, desc), ...]
+        db_affixes = self.db.get_all_affixes()
         for aid, content, desc in db_affixes:
             display = desc if desc else f"规则_{aid}"
             orig_display = display
@@ -257,36 +358,57 @@ class App(ctk.CTk):
             self.affix_source_map[display] = 'DB'
             affix_names.append(display)
             
+        # 更新 Tab1 选择框
         self.combo_affix.configure(values=affix_names)
+        # 更新 Tab3 管理下拉框
+        self.combo_affix_mgr.configure(values=affix_names)
         
-        # 尝试恢复之前选中的
+        # 尝试恢复
         current = self.combo_affix.get()
         if current in affix_names:
              self.on_affix_change(current)
+             self.combo_affix_mgr.set(current)
+             self.on_affix_mgr_change(current)
         elif affix_names:
             self.combo_affix.set(affix_names[0])
             self.on_affix_change(affix_names[0])
+            self.combo_affix_mgr.set(affix_names[0])
+            self.on_affix_mgr_change(affix_names[0])
         else:
             self.combo_affix.set("")
+            self.combo_affix_mgr.set("")
             self.current_rule_content = ""
+            self.lbl_rule_preview.configure(text="")
 
     def on_equip_change(self, choice):
-        print(f"如果你选择了: {choice}，点击【开始】时将加载对应坐标。")
+        print(f"已选择装备: {choice}")
+        self.combo_equip_mgr.set(choice)
 
     def on_affix_change(self, choice):
         if choice in self.affix_data_map:
             content = self.affix_data_map[choice]
-            # 如果是复杂对象(list/dict)，转成json字符串存到内存
             if isinstance(content, (list, dict)):
                 content = json.dumps(content, ensure_ascii=False)
             
             self.current_rule_content = str(content)
-            self.current_affix_id = self.affix_id_map.get(choice) # 获取ID，如果不是DB的则为None
+            self.current_affix_id = self.affix_id_map.get(choice)
             self.current_affix_source = self.affix_source_map.get(choice)
-            print(f"已加载规则: {choice} ({self.current_affix_source})")
+            
+            # 1. 更新预览 (原Tab3逻辑移动到这里)
+            preview = str(content)
+            if len(preview) > 50: preview = preview[:47] + "..."
+            try:
+                self.lbl_rule_preview.configure(text=preview)
+            except: pass
+
+            # 2. 同步 UI (仅设置值，不触发回调防止死循环)
+            if self.combo_affix_mgr.get() != choice:
+                self.combo_affix_mgr.set(choice)
+            
+            if self.combo_affix.get() != choice:
+                self.combo_affix.set(choice)
 
     def open_advanced_editor(self):
-        # 使用内存中的 content
         current_text = self.current_rule_content.strip()
         initial_data = None
         if current_text.startswith("[") and current_text.endswith("]"):
@@ -295,7 +417,6 @@ class App(ctk.CTk):
             except:
                 pass
         
-        # 回调函数：编辑器保存 update self.current_rule_content
         def on_save(data):
             json_str = json.dumps(data, ensure_ascii=False)
             self.current_rule_content = json_str
@@ -309,25 +430,22 @@ class App(ctk.CTk):
             print("错误：当前无规则内容")
             return
             
-        choice = self.combo_affix.get()
-        # 现在的 source 应该都是 'DB'，除非出错
+        choice = self.combo_affix_mgr.get() # 从管理Tab获取当前选中的名称
         
         # DB 配置
         if self.current_affix_id is not None:
-            # 这里的 choice 已经是纯名称
-            desc = choice 
-            
-            success = self.db.update_affix(self.current_affix_id, self.current_rule_content, desc)
+             # ... (逻辑同前，但稍微调整提示)
+            success = self.db.update_affix(self.current_affix_id, self.current_rule_content, choice)
             if success:
-                print(f"成功更新规则: {desc}")
+                print(f"成功更新规则: {choice}")
                 self._load_data() 
             else:
-                print("更新失败，可能是内容冲突或数据库错误。")
+                print("更新失败。")
         else:
-            print("错误：无法覆盖未保存的规则，请先保存为新规则。")
+             print("错误：请先选择一个规则。")
 
     def save_new_rule(self):
-        """保存为新规则"""
+         # ...逻辑不变
         if not self.current_rule_content:
             print("错误：当前无规则内容")
             return
@@ -340,17 +458,14 @@ class App(ctk.CTk):
             if success:
                 print(f"新规则 [{name}] 已保存。")
                 self._load_data() 
-                # 尝试选中新添加的
                 self.combo_affix.set(name)
                 self.on_affix_change(name)
-            else:
-                print("保存失败，可能该规则内容已存在。")
 
     def rename_current_rule(self):
-        """重命名当前规则"""
-        choice = self.combo_affix.get()
+        choice = self.combo_affix_mgr.get() # 从管理Tab获取
+        # ... 逻辑基本同前
+
         if not choice: return
-        
         if self.current_affix_id is None: return
 
         import customtkinter as ctk 
@@ -362,30 +477,20 @@ class App(ctk.CTk):
                 if success:
                     print(f"规则已重命名为: {new_name}")
                     self._load_data()
-                    self.combo_affix.set(new_name)
-                    self.on_affix_change(new_name)
                 else:
                     print("重命名失败。")
             except Exception as e:
                 print(f"重命名出错: {e}")
 
     def delete_current_rule(self):
-        """删除当前选中的规则"""
-        choice = self.combo_affix.get()
+        choice = self.combo_affix_mgr.get()
         if not choice: return
-        
-        if self.current_affix_id is None:
-            return
+        if self.current_affix_id is None: return
 
-        # 使用 db_helper 的方法 (需要先确认 db_helper 是否有 delete_affix)
-        # 上一步我们添加了，这里可以直接调用
         try:
             self.db.delete_affix(self.current_affix_id)
             print(f"规则 [{choice}] 已删除。")
             self._load_data()
-            if not self.combo_affix.get() or self.combo_affix.get() == choice:
-                 # 清空选择或选第一个
-                 pass # _load_data 会处理
         except Exception as e:
             print(f"删除失败: {e}")
 
@@ -400,8 +505,6 @@ class App(ctk.CTk):
         print("导入完成！")
         self._load_data()
 
-    # ================= 装备相关操作 =================
-
     def new_equip_flow(self):
         """新建装备流程"""
         import customtkinter as ctk 
@@ -411,27 +514,61 @@ class App(ctk.CTk):
         
         self._run_calibrate_logic(name, is_update=False)
 
+    def _run_calibrate_logic(self, name, is_update=False):
+        """通用的定位逻辑"""
+        print(f"=== 开始定位: {name} ===")
+        print("请在控制台/日志查看定位提示，并按【空格键】确认坐标...")
+        
+        try:
+            self.btn_new_equip.configure(state="disabled")
+            self.btn_edit_equip.configure(state="disabled")
+        except: pass
+        
+        def run_calibrate():
+            try:
+                # 使用默认配置
+                temp_washer = GearWasher(tesseract_cmd=self.ocr_path, 
+                                        debug_mode=self.debug_mode_var.get())
+                pos_data = temp_washer.calibrate_ui() 
+                
+                self.db.save_equipment_type(
+                    name=name,
+                    gear_pos=pos_data['gear_pos'],
+                    affix_points=pos_data['affix_points'],
+                    window_title=pos_data.get('window_title')
+                )
+                
+                print(f"配置 [{name}] 保存成功！")
+                self.after(0, self._load_data) 
+            except Exception as e:
+                print(f"定位失败: {e}")
+            finally:
+                self.after(0, lambda: self._enable_equip_buttons())
+                
+        threading.Thread(target=run_calibrate, daemon=True).start()
+
+    def _enable_equip_buttons(self):
+        try:
+            self.btn_new_equip.configure(state="normal")
+            self.btn_edit_equip.configure(state="normal")
+        except: pass
+
     def edit_current_equip(self):
-        """编辑(覆盖)当前装备定位"""
-        equip_name = self.combo_equip.get()
+        """编辑(覆盖)当前装备定位 - 从Tab2调用"""
+        equip_name = self.combo_equip_mgr.get()
         if not equip_name or equip_name == "无配置" or equip_name == "请选择...":
-            print("错误：请先选择一个配置！")
+            print("错误：请先在下拉框选择一个配置！")
             return
             
-        # 确认一下ID是否存在
         eid = self.equip_map.get(equip_name)
-        if not eid:
-            return
+        if not eid: return
 
         print(f"=== 准备重新定位: {equip_name} ===")
-        # 逻辑是一样的，只是名字不变，存的时候会自动 update
         self._run_calibrate_logic(equip_name, is_update=True)
 
     def rename_current_equip(self):
-        """重命名当前装备"""
-        equip_name = self.combo_equip.get()
+        equip_name = self.combo_equip_mgr.get()
         if not equip_name or equip_name == "无配置": return
-        
         eid = self.equip_map.get(equip_name)
         if not eid: return
 
@@ -442,15 +579,12 @@ class App(ctk.CTk):
             if self.db.rename_equipment_type(eid, new_name):
                 print(f"装备已重命名为: {new_name}")
                 self._load_data()
-                self.combo_equip.set(new_name)
             else:
-                print("重命名失败，可能名称已存在。")
-
+                print("重命名失败。")
+    
     def delete_current_equip(self):
-        """删除当前装备"""
-        equip_name = self.combo_equip.get()
+        equip_name = self.combo_equip_mgr.get()
         if not equip_name or equip_name == "无配置": return
-        
         eid = self.equip_map.get(equip_name)
         if not eid: return
         
@@ -458,71 +592,23 @@ class App(ctk.CTk):
         print(f"装备 [{equip_name}] 已删除。")
         self._load_data()
 
-
-    def create_new_equip(self):
-        """(旧接口保留) 代理到 new_equip_flow"""
-        self.new_equip_flow()
-
-    def _run_calibrate_logic(self, name, is_update=False):
-        """通用的定位逻辑"""
-        print(f"=== 开始定位: {name} ===")
-        print("请在控制台/日志查看定位提示，并按【空格键】确认坐标...")
-        
-        # 禁用相关按钮
-        self.btn_new_equip.configure(state="disabled")
-        self.btn_edit_equip.configure(state="disabled")
-        
-        def run_calibrate():
-            try:
-                # 使用默认配置 (在 washer.py 中定义)
-                temp_washer = GearWasher(tesseract_cmd=self.ocr_path, 
-                                        debug_mode=self.debug_mode_var.get())
-                pos_data = temp_washer.calibrate_ui() 
-                
-                # save_equipment_type 内部用了 INSERT ... ON CONFLICT UPDATE
-                # 所以只要 name 相同，就会覆盖
-                self.db.save_equipment_type(
-                    name=name,
-                    gear_pos=pos_data['gear_pos'],
-                    affix_points=pos_data['affix_points'],
-                    window_title=pos_data.get('window_title')
-                )
-                
-                print(f"配置 [{name}] 保存成功！请手动重启程序或刷新列表。")
-                self.after(0, self._load_data) 
-                # 如果是新建，可能需要选中... _load_data 默认选第一个，或者我可以手动set
-                # 简单起见 _load_data 后由用户选
-            except Exception as e:
-                print(f"定位失败: {e}")
-            finally:
-                self.after(0, lambda: self._enable_equip_buttons())
-                
-        threading.Thread(target=run_calibrate, daemon=True).start()
-
-    def _enable_equip_buttons(self):
-        self.btn_new_equip.configure(state="normal")
-        self.btn_edit_equip.configure(state="normal")
-
     def start_washing(self):
         if self.running: return
         
+        # update interval from slider
+        # ... logic inside ...
+        
         equip_name = self.combo_equip.get()
-        if not equip_name or equip_name == "无配置" or equip_name == "请选择...":
-            print("错误：请先选择或新建装备配置！")
-            return
-            
+        if not equip_name or equip_name == "无配置":
+             print("错误：请先选择装备配置！")
+             return
+
         affix_rule_str = self.current_rule_content
         if not affix_rule_str:
             print("错误：当前未加载任何词缀规则！")
             return
-            
-        # 尝试解析 JSON
-        final_conditions = affix_rule_str
-        if affix_rule_str.startswith("[") or affix_rule_str.startswith("{"):
-            try:
-                final_conditions = json.loads(affix_rule_str)
-            except json.JSONDecodeError:
-                pass
+        
+        # ... (rest of start_washing logic) ...
 
         try:
             eid = self.equip_map.get(equip_name)
@@ -536,12 +622,17 @@ class App(ctk.CTk):
                 print(f"错误：找不到装备 [{equip_name}] 的数据库记录")
                 return
                 
-            print(f"OCR设置：调试模式 {'ON' if self.debug_mode_var.get() else 'OFF'}")
+            debug_mode = self.debug_mode_var.get()
+            interval_val = self.slider_speed.get()
+            
+            print(f"正在启动... 速度间隔: {interval_val:.2f}s, 调试: {debug_mode}")
                 
             self.washer = GearWasher(tesseract_cmd=self.ocr_path, 
-                                    debug_mode=self.debug_mode_var.get())
+                                    debug_mode=debug_mode)
+            
             self.washer.gear_pos = cfg['gear_pos']
-            self.washer.window_title = cfg.get('window_title') # 设置绑定的窗口标题
+            self.washer.window_title = cfg.get('window_title')
+            self.washer.interval = interval_val # SET INTERVAL
             
             p1, p2 = cfg['affix_points']
             x = min(p1[0], p2[0])
@@ -550,6 +641,13 @@ class App(ctk.CTk):
             h = abs(p2[1] - p1[1])
             self.washer.affix_region = (x, y, w, h)
             
+            # Parsing JSON rule
+            final_conditions = affix_rule_str
+            if affix_rule_str.startswith("[") or affix_rule_str.startswith("{"):
+                try:
+                    final_conditions = json.loads(affix_rule_str)
+                except json.JSONDecodeError:
+                    pass
             self.washer.conditions = final_conditions
             
         except Exception as e:
@@ -561,7 +659,7 @@ class App(ctk.CTk):
         self.running = True
         self.btn_start.configure(state="disabled")
         self.btn_stop.configure(state="normal")
-        self.lbl_status.configure(text="运行中...", text_color="green")
+        self.lbl_status.configure(text="运行中... (按HOME停止)", text_color="green")
         
         self.worker_thread = threading.Thread(target=self._run_washer_loop, daemon=True)
         self.worker_thread.start()
