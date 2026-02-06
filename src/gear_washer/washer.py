@@ -23,7 +23,7 @@ class GearWasher:
         self.window_title = None  # 绑定的窗口标题，如果不为None，则启用相对坐标模式
         self.wash_button_pos = None # (x, y) 洗炼按钮位置
         self.conditions = None
-        self.max_attempts = 1000
+        self.max_attempts = 10000
         self.interval = 0.2 # 每次洗炼间隔(秒) - 默认加快速度
         
         # 中止信号标志位
