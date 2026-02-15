@@ -60,11 +60,9 @@ class AffixMatcher:
             for affix_item in affixes:
                 # 兼容旧格式(str)和新格式(dict: {name: 'xxx', exact: true})
                 affix_str = ""
-                is_exact = False
                 
                 if isinstance(affix_item, dict):
                     affix_str = affix_item.get('name', '')
-                    is_exact = affix_item.get('exact', False)
                 elif isinstance(affix_item, str):
                     affix_str = affix_item
                 
@@ -72,43 +70,17 @@ class AffixMatcher:
 
                 kw_normalized = self.normalize_text(affix_str.strip())
                 
-                if is_exact:
-                    # 精准匹配逻辑：
-                    # 1. raw_text 已经是 normalize 过的（去标点、转小写）
-                    # 2. 我们按行分割 raw_text，或者其他分隔符
-                    # 因为 normalize_text 会移除标点，所以 "法术伤害" 和 "冰冻系法术伤害"
-                    # normalize 后可能是 "法术伤害" 和 "冰冻系法术伤害"
-                    # 如果 raw_text 是一大段连在一起的字，很难判定边界。
-                    # 但 OCR 结果往往包含换行符，normalize_text 并没有去除换行符，只是去除了标点 [^\w\s].
-                    # \s 包含了换行。
-                    
-                    found_exact = False
-                    # 假设 raw_text 里各个词缀之间有换行或空格分隔
-                    # 为了做精准匹配，我们需要更原始一点的分割，但这里传入的 raw_text 已经被 normalize 了
-                    # 所以我们尝试在 raw_text 中寻找边界。
-                    # 简单策略：如果原始文本是按行识别的，那么每一行就是一个词条。
-                    # 但这里 raw_text 已经是一整块字符串。
-                    # 我们尝试用 \s+ 分割
-                    words = re.split(r'\s+', raw_text)
-                    for w in words:
-                        if w == kw_normalized:
-                            found_exact = True
-                            break
-                    
-                    if found_exact:
-                        matched_count += 1
+                # 模糊匹配 或 表达式匹配
+                # 如果 affix_str 包含逻辑符号 && ||，则作为表达式处理
+                if '&&' in affix_str or '||' in affix_str:
+                        # 这里调用 _check_expression 而不是递归调用 check，
+                        # 因为我们已经有了 normailzed 的 raw_text，不需要再次 normalize
+                        if self._check_expression(raw_text, affix_str):
+                            matched_count += 1
                 else:
-                    # 模糊匹配 或 表达式匹配
-                    # 如果 affix_str 包含逻辑符号 && ||，则作为表达式处理
-                    if '&&' in affix_str or '||' in affix_str:
-                         # 这里调用 _check_expression 而不是递归调用 check，
-                         # 因为我们已经有了 normailzed 的 raw_text，不需要再次 normalize
-                         if self._check_expression(raw_text, affix_str):
-                            matched_count += 1
-                    else:
-                        # 普通包含匹配
-                        if kw_normalized in raw_text:
-                            matched_count += 1
+                    # 普通包含匹配
+                    if kw_normalized in raw_text:
+                        matched_count += 1
             
             # 根据类型判定
             if g_type == 'AND':

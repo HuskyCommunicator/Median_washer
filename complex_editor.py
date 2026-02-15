@@ -159,12 +159,9 @@ class ComplexRuleEditor(ctk.CTkToplevel):
         row_frame.pack(fill="x", pady=2)
         
         text_val = ""
-        is_exact_val = False
         
         if isinstance(data, dict):
             text_val = data.get("name", "")
-            if data.get("exact") is True:
-                is_exact_val = True
         elif isinstance(data, str):
             text_val = data
         
@@ -177,12 +174,7 @@ class ComplexRuleEditor(ctk.CTkToplevel):
                                 command=lambda: self.remove_affix_row(row_frame, rows_list))
         btn_del.pack(side="right")
 
-        # 精准匹配复选框
-        chk_var = ctk.IntVar(value=1 if is_exact_val else 0)
-        chk_exact = ctk.CTkCheckBox(row_frame, text="精准", variable=chk_var, width=50, checkbox_width=18, checkbox_height=18)
-        chk_exact.pack(side="right", padx=5)
-        
-        rows_list.append({"frame": row_frame, "entry": entry, "exact_var": chk_var})
+        rows_list.append({"frame": row_frame, "entry": entry})
 
     def remove_affix_row(self, row_frame, rows_list):
         row_frame.destroy()
@@ -213,13 +205,7 @@ class ComplexRuleEditor(ctk.CTkToplevel):
             for row in g["affix_rows"]:
                 val = row["entry"].get().strip()
                 if val:
-                    is_exact = bool(row["exact_var"].get())
-                    # 如果勾选精准，我们存成 {"name": "xxx", "exact": true}
-                    # 否则存成字符串（保持兼容性）
-                    if is_exact:
-                        affixes.append({"name": val, "exact": True})
-                    else:
-                        affixes.append(val)
+                    affixes.append(val)
             
             item = {
                 "type": g_type,
