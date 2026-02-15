@@ -291,6 +291,11 @@ class App(ctk.CTk):
         self.debug_mode_var = ctk.BooleanVar(value=False)
         self.check_debug = ctk.CTkSwitch(self.frame_settings, text="调试模式 (保存OCR图片到 ocr_debug/)", variable=self.debug_mode_var)
         self.check_debug.pack(anchor="w", padx=20, pady=20)
+
+        # 1.5 后台模式
+        self.background_mode_var = ctk.BooleanVar(value=False)
+        self.check_background = ctk.CTkSwitch(self.frame_settings, text="后台模式 (实验性, 窗口可被遮挡但不能最小化)", variable=self.background_mode_var)
+        self.check_background.pack(anchor="w", padx=20, pady=10)
         
         # 2. 洗炼速度
         ctk.CTkLabel(self.frame_settings, text="洗炼速度调节 (间隔时间):", font=("Microsoft YaHei", 12, "bold")).pack(anchor="w", padx=20, pady=(10, 0))
@@ -633,12 +638,14 @@ class App(ctk.CTk):
                 return
                 
             debug_mode = self.debug_mode_var.get()
+            bg_mode = self.background_mode_var.get()
             interval_val = self.slider_speed.get()
             
-            print(f"正在启动... 速度间隔: {interval_val:.2f}s, 调试: {debug_mode}")
+            print(f"正在启动... 速度间隔: {interval_val:.2f}s, 调试: {debug_mode}, 后台模式: {bg_mode}")
                 
             self.washer = GearWasher(tesseract_cmd=self.ocr_path, 
-                                    debug_mode=debug_mode)
+                                    debug_mode=debug_mode,
+                                    background_mode=bg_mode)
             
             self.washer.gear_pos = cfg['gear_pos']
             self.washer.window_title = cfg.get('window_title')

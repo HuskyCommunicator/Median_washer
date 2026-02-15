@@ -5,6 +5,7 @@ import os
 import subprocess
 from PIL import Image, ImageOps, ImageChops
 from typing import Tuple, Optional
+from . import win32_utils
 
 class ScreenReader:
     def __init__(self, tesseract_cmd: str = None, debug_mode: bool = False):
@@ -35,14 +36,21 @@ class ScreenReader:
             print(f"Screenshot failed for region {region}: {e}")
             return Image.new('RGB', (1, 1), color='black')
 
-    def read_text(self, region: Tuple[int, int, int, int], lang: str = 'chi_sim', scale_factor: float = 2.5) -> str:
+    def read_text(self, region: Tuple[int, int, int, int], lang: str = 'chi_sim', scale_factor: float = 2.5, hwnd=None) -> str:
         """
         读取指定区域的文字
         :param region: (left, top, width, height)
         :param lang: 语言代码，默认为简体中文 'chi_sim' (需要安装对应的 tesseract 语言包)
         :param scale_factor: 图片放大倍数，默认放大2.5倍以提高OCR准确度
+        :param hwnd: 如果提供，则使用后台截图模式 (region 为相对于窗口的坐标)
         """
-        image = self.capture_region(region)
+        if hwnd:
+            image = win32_utils.background_screenshot(hwnd, *region)
+            if image is None:
+                print(f"Background screenshot failed for region {region}")
+                return ""
+        else:
+            image = self.capture_region(region)
         
         # 放大图片以提高OCR识别准确度
         if scale_factor > 1.0:

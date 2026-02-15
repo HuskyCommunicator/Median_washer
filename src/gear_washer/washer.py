@@ -11,10 +11,11 @@ from .screen import ScreenReader
 from . import win32_utils # 导入窗口工具
 
 class GearWasher:
-    def __init__(self, tesseract_cmd=None, debug_mode=False, ocr_scale_factor=2.5):
+    def __init__(self, tesseract_cmd=None, debug_mode=False, ocr_scale_factor=2.5, background_mode=False):
         self.matcher = AffixMatcher()
         self.screen = ScreenReader(tesseract_cmd, debug_mode=debug_mode)
         self.debug_mode = debug_mode
+        self.background_mode = background_mode
         self.ocr_scale_factor = ocr_scale_factor  # OCR图片放大倍数，原图字高20px左右，2.5倍放大到50px最佳
         
         # 默认配置
@@ -40,6 +41,9 @@ class GearWasher:
         if not self.stop_requested:
             print("\n>>> 已捕获 HOME 键，正在通过信号停止... <<<")
             self.stop_requested = True
+
+    def stop(self):
+        self._on_stop_signal()
 
     def _wait_for_key(self):
         """等待按键确认坐标"""
@@ -187,30 +191,41 @@ class GearWasher:
             return
 
         print(f"开始执行洗炼，最大尝试次数: {self.max_attempts}")
+        if self.background_mode:
+            print("模式: [后台运行] - 请确保游戏窗口不要最小化 (可以被遮挡)")
+        else:
+            print("模式: [前台运行] - 请在该窗口激活游戏/应用，不要移动鼠标")
+            
         print("提示：按【HOME键】可随时终止运行")
-        print("请在该窗口激活游戏/应用，然后不要移动鼠标干扰操作...")
         
         # 启动等待也可以被打断
         if self._smart_sleep(1.0): 
             print("启动被打断。")
             return
 
-        # 计算偏移量 (如果绑定了窗口)
+        # 查找窗口并计算
         offset_x, offset_y = 0, 0
+        target_hwnd = None
+        
         if self.window_title:
             print(f"尝试查找窗口: [{self.window_title}] ...")
             target_win = win32_utils.find_window_by_title(self.window_title)
             if target_win:
                 offset_x, offset_y = target_win['x'], target_win['y']
-                print(f"已定位窗口位置: ({offset_x}, {offset_y})")
+                target_hwnd = target_win['hwnd']
+                print(f"已定位窗口位置: ({offset_x}, {offset_y}) HWND: {target_hwnd}")
             else:
                 print(f"错误: 找不到标题包含 [{self.window_title}] 的窗口！")
-                print("请确认游戏已启动。将尝试使用最后的绝对坐标...")
-                # 这里可以选择 return 中止，或者冒险继续
-                # 为了安全，中止比较好
+                if self.background_mode:
+                    print("后台模式必须依赖窗口绑定，无法继续！")
+                    return
+                print("前台模式将尝试使用最后的绝对坐标 (可能不准确)...")
+        else:
+             if self.background_mode:
+                print("错误: 后台模式必须在配置中绑定窗口标题！")
                 return
 
-        # 预计算实际坐标
+        # 预计算前台模式需要的绝对坐标
         real_gear_pos = (self.gear_pos[0] + offset_x, self.gear_pos[1] + offset_y)
         real_affix_region = (self.affix_region[0] + offset_x, self.affix_region[1] + offset_y, self.affix_region[2], self.affix_region[3])
 
@@ -218,25 +233,33 @@ class GearWasher:
             # --- 阶段性检查 1 ---
             if self._check_stop(): break
 
+            # 调试日志仅每10次显示一次，避免刷屏 (还是全显吧，用户爱看不看)
             print(f"\n--- 第 {i+1} 次尝试 ---")
             
             # 1. 移动到装备位置，显示浮窗
-            # 使用 duration=0 瞬间移动，确保鼠标在位
-            pyautogui.moveTo(real_gear_pos[0], real_gear_pos[1], duration=0)
+            if self.background_mode:
+                 # 后台模式：发送鼠标移动消息 (使用相对坐标)
+                 win32_utils.send_mouse_move(target_hwnd, self.gear_pos[0], self.gear_pos[1])
+            else:
+                 # 前台模式：物理移动鼠标
+                 pyautogui.moveTo(real_gear_pos[0], real_gear_pos[1], duration=0)
             
             # --- 阶段性检查 2 (移动后) ---
             if self._check_stop(): break
 
-            # 等待浮窗显示 (缩短等待时间)
+            # 等待浮窗显示
             if self._smart_sleep(0.1): break
 
             # 2. 识别当前属性
-            # 文字识别通常比较耗时，识别前确认一下
             if self._check_stop(): break
             
             try:
-                # 使用计算后的实际区域
-                text = self.screen.read_text(real_affix_region, scale_factor=self.ocr_scale_factor)
+                if self.background_mode:
+                    # 后台模式：传递 hwnd 和相对区域
+                    text = self.screen.read_text(self.affix_region, scale_factor=self.ocr_scale_factor, hwnd=target_hwnd)
+                else:
+                    # 前台模式：使用绝对区域
+                    text = self.screen.read_text(real_affix_region, scale_factor=self.ocr_scale_factor)
             except Exception as e:
                 print(f"识别出错: {e}")
                 text = ""
@@ -251,28 +274,39 @@ class GearWasher:
             if self.matcher.check(text, self.conditions):
                 print(">>> 成功匹配到目标属性！停止洗炼。 <<<")
                 
-                # 尝试强制前台并置顶
+                # 尝试强制前台并置顶 (仅提醒)
                 import ctypes
                 try:
-                    ctypes.windll.user32.SwitchToThisWindow(ctypes.windll.kernel32.GetConsoleWindow(), 1)
+                    # 如果是后台模式，可能需要闪烁任务栏提醒
+                    if self.background_mode:
+                        ctypes.windll.user32.FlashWindow(ctypes.windll.kernel32.GetConsoleWindow(), 1)
+                    else:
+                        ctypes.windll.user32.SwitchToThisWindow(ctypes.windll.kernel32.GetConsoleWindow(), 1)
                 except:
                     pass
                 
                 ctypes.windll.user32.MessageBoxW(0, f'洗炼完成！\n已匹配到目标属性:\n{self.conditions}', '装备洗炼助手', 0x40 | 0x1000)
                 break
             
-            # 4. 不满足，按Z键洗炼（鼠标保持在装备位置）
+            # 4. 不满足，按Z键洗炼
+            # 注意：在后台模式下，鼠标理论上只是发送了消息，不需要显式保持。
+            # 但为了保险，可以再次确保鼠标位置(通常不需要)
+            
             print("未匹配，按Z键洗炼...")
-            if keyboard:
-                keyboard.press_and_release('z')
+            if self.background_mode:
+                 win32_utils.send_key_click(target_hwnd, 'z')
             else:
-                pyautogui.press('z')
+                if keyboard:
+                    try:
+                        keyboard.press_and_release('z')
+                    except:
+                        pyautogui.press('z')
+                else:
+                    pyautogui.press('z')
             
             # 5. 等待动画或刷新
-            # 将原本的 sleep(self.interval) 换成智能等待
             if self._smart_sleep(self.interval):
                 print("\n\n>>> 用户手动停止脚本。 <<<")
-                # 尝试通过 Windows API 弹窗提醒中止
                 try:
                     import ctypes
                     ctypes.windll.user32.MessageBoxW(0, '用户手动中止洗炼。', '脚本停止', 0x40 | 0x1000)
