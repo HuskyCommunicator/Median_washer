@@ -310,8 +310,8 @@ class App(ctk.CTk):
         """初始化系统设置 Tab"""
         ts = self.tab_setting
         
-        self.frame_settings = ctk.CTkFrame(ts)
-        self.frame_settings.pack(fill="both", expand=True, padx=20, pady=20)
+        self.frame_settings = ctk.CTkScrollableFrame(ts)
+        self.frame_settings.pack(fill="both", expand=True, padx=5, pady=5)
         
         # 1. 调试模式
         self.debug_mode_var = ctk.BooleanVar(value=False)
