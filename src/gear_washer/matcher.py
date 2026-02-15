@@ -1,11 +1,15 @@
 import re
 from typing import List, Union, Dict
+import difflib
 
 class AffixMatcher:
     """
     处理词缀匹配逻辑。
     支持简单的字符串匹配，以及 AND/OR 逻辑组合。
     """
+    
+    # 默认相似度阈值 (0.0 - 1.0)，建议 0.7 左右
+    DEFAULT_THRESHOLD = 0.7
 
     @staticmethod
     def normalize_text(text: str) -> str:
@@ -16,6 +20,49 @@ class AffixMatcher:
         # 合并多余空格
         text = re.sub(r'\s+', ' ', text).strip()
         return text
+
+    def _fuzzy_contains(self, haystack: str, needle: str, threshold: float = None) -> bool:
+        """
+        检查 haystack (长文本) 中是否模糊包含 needle (关键词)。
+        使用滑动窗口 + SequenceMatcher。
+        """
+        if threshold is None:
+            threshold = self.DEFAULT_THRESHOLD
+
+        if not needle:
+            return True
+        if not haystack:
+            return False
+            
+        # 如果是精确包含，直接返回 True (性能优化)
+        if needle in haystack:
+            return True
+
+        n_len = len(needle)
+        h_len = len(haystack)
+        
+        # 如果关键词比文本还长，直接算两个字符串的相似度
+        if n_len > h_len:
+             return difflib.SequenceMatcher(None, haystack, needle).ratio() >= threshold
+
+        # 滑动窗口匹配
+        # 窗口大小允许一定的浮动，例如 +/- 2 个字符，应对 OCR 多字/少字的情况
+        window_sizes = [n_len, n_len + 1, n_len - 1]
+        
+        # 优化: 只在特定步长滑动，减少计算量
+        step = 1 if n_len < 10 else 2
+        
+        for w_len in window_sizes:
+            if w_len <= 0: continue
+            for i in range(0, h_len - w_len + 1, step):
+                # 截取窗口
+                sub_str = haystack[i : i + w_len]
+                # 计算相似度
+                ratio = difflib.SequenceMatcher(None, sub_str, needle).ratio()
+                if ratio >= threshold:
+                    return True
+                    
+        return False
 
     def check(self, screen_text: str, conditions: Union[str, List, Dict]) -> bool:
         """
@@ -38,7 +85,7 @@ class AffixMatcher:
             
             # 否则走简单单词匹配
             keyword = self.normalize_text(conditions)
-            return keyword in raw_text
+            return self._fuzzy_contains(raw_text, keyword)
 
         elif isinstance(conditions, list):
             # 普通字符串列表默认是 AND 关系 (旧逻辑兼容)
@@ -78,8 +125,8 @@ class AffixMatcher:
                         if self._check_expression(raw_text, affix_str):
                             matched_count += 1
                 else:
-                    # 普通包含匹配
-                    if kw_normalized in raw_text:
+                    # 普通包含匹配 (使用模糊匹配)
+                    if self._fuzzy_contains(raw_text, kw_normalized):
                         matched_count += 1
             
             # 根据类型判定
@@ -137,7 +184,7 @@ class AffixMatcher:
         for kw in keywords:
             # 归一化关键词进行比对
             normalized_kw = self.normalize_text(kw)
-            is_exist = normalized_kw in raw_text
+            is_exist = self._fuzzy_contains(raw_text, normalized_kw)
             context[kw] = is_exist
 
         # 4. 执行求值

@@ -45,10 +45,12 @@ class App(ctk.CTk):
         # 获取基础路径 (兼容 IDE 运行和打包后的 Exe)
         if getattr(sys, 'frozen', False):
             # 如果是打包后的 exe，sys.executable 指向 exe 文件所在目录
-            base_dir = os.path.dirname(sys.executable)
+            self.base_dir = os.path.dirname(sys.executable)
         else:
             # 如果是脚本运行
-            base_dir = os.path.dirname(os.path.abspath(__file__))
+            self.base_dir = os.path.dirname(os.path.abspath(__file__))
+
+        base_dir = self.base_dir # 为了兼容旧代码引用
 
         self.ocr_path = os.path.join(base_dir, 'OCR', 'tesseract.exe')
         
@@ -187,12 +189,12 @@ class App(ctk.CTk):
         
         # 选择装备
         ctk.CTkLabel(tr, text="当前装备:", font=("Microsoft YaHei", 14)).grid(row=0, column=0, padx=20, pady=20, sticky="e")
-        self.combo_equip = ctk.CTkComboBox(tr, width=250, command=self.on_equip_change)
+        self.combo_equip = ctk.CTkComboBox(tr, state="readonly", width=250, command=self.on_equip_change)
         self.combo_equip.grid(row=0, column=1, padx=20, pady=20, sticky="w")
         
         # 选择规则
         ctk.CTkLabel(tr, text="当前规则:", font=("Microsoft YaHei", 14)).grid(row=1, column=0, padx=20, pady=20, sticky="e")
-        self.combo_affix = ctk.CTkComboBox(tr, width=250, command=self.on_affix_change)
+        self.combo_affix = ctk.CTkComboBox(tr, state="readonly", width=250, command=self.on_affix_change)
         self.combo_affix.grid(row=1, column=1, padx=20, pady=20, sticky="w")
         
         # 开始/停止 按钮区
@@ -227,7 +229,7 @@ class App(ctk.CTk):
         self.frame_equip_card.pack(fill="x", padx=20, pady=10)
         
         ctk.CTkLabel(self.frame_equip_card, text="在下拉框中选择要操作的装备:").pack(pady=5)
-        self.combo_equip_mgr = ctk.CTkComboBox(self.frame_equip_card, width=300, command=None) # 这里只需要同步数据
+        self.combo_equip_mgr = ctk.CTkComboBox(self.frame_equip_card, state="readonly", width=300, command=None) # 这里只需要同步数据
         self.combo_equip_mgr.pack(pady=10)
         
         # 操作按钮区
@@ -268,7 +270,7 @@ class App(ctk.CTk):
         self.frame_rule_card.pack(fill="x", padx=15, pady=5)
         
         ctk.CTkLabel(self.frame_rule_card, text="当前编辑的规则:").pack(pady=(10, 2))
-        self.combo_affix_mgr = ctk.CTkComboBox(self.frame_rule_card, width=320, command=self.on_affix_mgr_change)
+        self.combo_affix_mgr = ctk.CTkComboBox(self.frame_rule_card, state="readonly", width=320, command=self.on_affix_mgr_change)
         self.combo_affix_mgr.pack(pady=5)
         
         # 简易预览
@@ -338,6 +340,11 @@ class App(ctk.CTk):
         self.btn_bind_stop.grid(row=1, column=1, padx=5, pady=5)
         
         ctk.CTkLabel(hk_frame, text="点击按钮后按下任意键 (支持组合键)", text_color="gray", font=("Consolas", 10)).grid(row=2, column=0, columnspan=2, pady=5)
+
+        # 4. 帮助与关于
+        ctk.CTkLabel(self.frame_settings, text="帮助:", font=("Microsoft YaHei", 12, "bold")).pack(anchor="w", padx=20, pady=(20, 5))
+        btn_guide = ctk.CTkButton(self.frame_settings, text="📖 查看操作指南", command=self._show_guide_window, fg_color="#444444")
+        btn_guide.pack(anchor="w", padx=20, pady=5)
         
         # 版本信息
         ctk.CTkLabel(self.frame_settings, text="\n\nMedian Washer Pro v2.0\nOptimized for Game Experience", text_color="#555555").pack(side="bottom", pady=20)
@@ -405,6 +412,35 @@ class App(ctk.CTk):
             self.btn_bind_start.configure(state="normal", text=self.hk_start.upper(), fg_color="#555555")
             self.btn_bind_stop.configure(state="normal", text=self.hk_stop.upper(), fg_color="#555555")
         except: pass
+
+    def _show_guide_window(self):
+        """显示操作手册窗口"""
+        try:
+            guide_path = os.path.join(self.base_dir, '操作手册.md')
+            if not os.path.exists(guide_path):
+                guide_content = "找不到操作手册.md 文件，请检查路径。"
+            else:
+                with open(guide_path, 'r', encoding='utf-8') as f:
+                    guide_content = f.read()
+        except Exception as e:
+            guide_content = f"读取操作手册失败: {e}"
+
+        # 创建新窗口
+        guide_window = ctk.CTkToplevel(self)
+        guide_window.title("操作指南 - Median Washer Pro")
+        guide_window.geometry("800x600")
+        
+        # 总是置顶
+        guide_window.attributes("-topmost", True)
+        
+        # 文本显示区域
+        textbox = ctk.CTkTextbox(guide_window, font=("Consolas", 14))
+        textbox.pack(fill="both", expand=True, padx=10, pady=10)
+        textbox.insert("0.0", guide_content)
+        textbox.configure(state="disabled") # 只读
+
+        # 聚焦窗口
+        guide_window.focus()
 
         
     def on_speed_change(self, value):
