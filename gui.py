@@ -88,26 +88,50 @@ class App(ctk.CTk):
         # 布局配置
         self.grid_columnconfigure(1, weight=1)
         self.grid_rowconfigure(3, weight=1) # 日志区域自适应高度
+        
+        # 从数据库加载快捷键配置
+        self.hk_start = self.db.get("hotkey_start", "end")
+        self.hk_stop = self.db.get("hotkey_stop", "home")
 
         self._init_ui()
         self._load_data()
         
         # 注册全局快捷键
-        if keyboard:
-            try:
-                keyboard.add_hotkey('end', self._on_start_hotkey)
-                print("全局快捷键已注册: 按 [END] 开始洗炼, 按 [HOME] 停止")
-            except Exception as e:
-                print(f"快捷键注册失败: {e}")
+        self._register_hotkeys()
         
         # 定时检查日志输出
         self.after(100, self._check_log_queue)
 
+    def _register_hotkeys(self):
+        """注册全局快捷键"""
+        if not keyboard:
+            print("警告: 键盘库未安装，快捷键不可用")
+            return
+            
+        try:
+            # 先清除旧的热键
+            try:
+                keyboard.unhook_all_hotkeys()
+            except: pass
+            
+            keyboard.add_hotkey(self.hk_start, self._on_start_hotkey)
+            keyboard.add_hotkey(self.hk_stop, self._on_stop_hotkey)
+            
+            print(f"全局快捷键已注册: 按 [{self.hk_start}] 开始, 按 [{self.hk_stop}] 停止")
+        except Exception as e:
+            print(f"快捷键注册失败 (可能是键名无效): {e}")
+
     def _on_start_hotkey(self):
-        """处理 END 键按下"""
+        """处理 Start 键按下"""
         if not self.running:
             # 在主线程调用 start, 避免线程安全问题
             self.after(0, self.start_washing)
+
+    def _on_stop_hotkey(self):
+        """处理 Stop 键按下"""
+        if self.running:
+            print(">>> 检测到停止快捷键 <<<")
+            self.after(0, self.stop_washing)
 
     def _init_ui(self):
         # 使用 TabView 进行主要布局
@@ -232,11 +256,15 @@ class App(ctk.CTk):
         """初始化规则管理 Tab"""
         tr = self.tab_rule
         
+        # 添加滚动容器以适应小窗口
+        scroll_rule = ctk.CTkScrollableFrame(tr)
+        scroll_rule.pack(fill="both", expand=True, padx=5, pady=5)
+
         # 顶部标题
-        ctk.CTkLabel(tr, text="词缀规则管理中心", font=("Microsoft YaHei", 16, "bold"), text_color="silver").pack(pady=(15, 5))
+        ctk.CTkLabel(scroll_rule, text="词缀规则管理中心", font=("Microsoft YaHei", 16, "bold"), text_color="silver").pack(pady=(15, 5))
         
         # 1. 规则选择区
-        self.frame_rule_card = ctk.CTkFrame(tr)
+        self.frame_rule_card = ctk.CTkFrame(scroll_rule)
         self.frame_rule_card.pack(fill="x", padx=15, pady=5)
         
         ctk.CTkLabel(self.frame_rule_card, text="当前编辑的规则:").pack(pady=(10, 2))
@@ -248,37 +276,33 @@ class App(ctk.CTk):
         self.lbl_rule_preview.pack(pady=(0, 10))
 
         # 2. 核心操作区
-        self.frame_rule_ops = ctk.CTkFrame(tr, fg_color="transparent")
+        self.frame_rule_ops = ctk.CTkFrame(scroll_rule, fg_color="transparent")
         self.frame_rule_ops.pack(fill="x", padx=15, pady=5)
         
-        # 使用 grid 布局，3列2行，更紧凑
+        # 使用 grid 布局，2列
         self.frame_rule_ops.grid_columnconfigure(0, weight=1)
         self.frame_rule_ops.grid_columnconfigure(1, weight=1)
-        self.frame_rule_ops.grid_columnconfigure(2, weight=1)
         
-        # 第1行：编辑与保存
-        self.btn_advanced = ctk.CTkButton(self.frame_rule_ops, text="📝 编辑详情(JSON)", height=35, fg_color="#555555", command=self.open_advanced_editor)
-        self.btn_advanced.grid(row=0, column=0, columnspan=2, padx=5, pady=5, sticky="ew") # 跨两列
+        # 第1行：主要编辑
+        self.btn_advanced = ctk.CTkButton(self.frame_rule_ops, text="📝 编辑详情(JSON)", height=40, fg_color="#555555", command=self.open_advanced_editor)
+        self.btn_advanced.grid(row=0, column=0, columnspan=2, padx=5, pady=5, sticky="ew")
         
-        self.btn_save_overwrite = ctk.CTkButton(self.frame_rule_ops, text="💾 保存修改", height=35, fg_color="#FFA500", command=self.save_overwrite_rule)
-        self.btn_save_overwrite.grid(row=0, column=2, padx=5, pady=5, sticky="ew")
-
-        # 第2行：管理操作
-        self.btn_save_new = ctk.CTkButton(self.frame_rule_ops, text="➕ 另存为新规则", width=120, height=35, command=self.save_new_rule)
-        self.btn_save_new.grid(row=1, column=0, padx=5, pady=5, sticky="ew")
+        # 第2行：新建与重命名
+        self.btn_new_rule = ctk.CTkButton(self.frame_rule_ops, text="➕ 新增规则", height=35, command=self.create_new_rule)
+        self.btn_new_rule.grid(row=1, column=0, padx=5, pady=5, sticky="ew")
         
-        self.btn_rename_rule = ctk.CTkButton(self.frame_rule_ops, text="✎ 重命名", width=120, height=35, fg_color="#FFA500", command=self.rename_current_rule)
+        self.btn_rename_rule = ctk.CTkButton(self.frame_rule_ops, text="✎ 重命名", height=35, fg_color="#FFA500", command=self.rename_current_rule)
         self.btn_rename_rule.grid(row=1, column=1, padx=5, pady=5, sticky="ew")
         
-        self.btn_delete_rule = ctk.CTkButton(self.frame_rule_ops, text="🗑 删除", width=80, height=35, fg_color="darkred", command=self.delete_current_rule)
-        self.btn_delete_rule.grid(row=1, column=2, padx=5, pady=5, sticky="ew")
-        
-        # 第3行：导入导出工具
-        self.frame_tools = ctk.CTkFrame(tr, fg_color="transparent")
-        self.frame_tools.pack(fill="x", padx=15, pady=5)
-        
-        self.btn_load_def = ctk.CTkButton(self.frame_tools, text="📥 导入默认规则库", width=200, height=30, fg_color="#333333", command=self.load_defaults)
-        self.btn_load_def.pack(side="top", pady=5)
+        # 第3行：删除与导入 (一行显示，节省纵向空间防止遮挡)
+        self.btn_delete_rule = ctk.CTkButton(self.frame_rule_ops, text="🗑 删除规则", height=35, fg_color="darkred", command=self.delete_current_rule)
+        self.btn_delete_rule.grid(row=2, column=0, padx=5, pady=5, sticky="ew")
+
+        self.btn_load_def = ctk.CTkButton(self.frame_rule_ops, text="📥 导入默认库", height=35, fg_color="#333333", command=self.load_defaults)
+        self.btn_load_def.grid(row=2, column=1, padx=5, pady=5, sticky="ew")
+
+        # 移除单独的 frame_tools，原本的按钮已整合进 grid
+        # self.frame_tools = ctk.CTkFrame(tr, fg_color="transparent") ...
 
     def _init_tab_setting(self):
         """初始化系统设置 Tab"""
@@ -297,21 +321,92 @@ class App(ctk.CTk):
         self.check_background = ctk.CTkSwitch(self.frame_settings, text="后台模式 (实验性, 窗口可被遮挡但不能最小化)", variable=self.background_mode_var)
         self.check_background.pack(anchor="w", padx=20, pady=10)
         
-        # 2. 洗炼速度
-        ctk.CTkLabel(self.frame_settings, text="洗炼速度调节 (间隔时间):", font=("Microsoft YaHei", 12, "bold")).pack(anchor="w", padx=20, pady=(10, 0))
+        # 3. 快捷键设置
+        ctk.CTkLabel(self.frame_settings, text="全局快捷键设置:", font=("Microsoft YaHei", 12, "bold")).pack(anchor="w", padx=20, pady=(20, 5))
         
-        self.speed_val_label = ctk.CTkLabel(self.frame_settings, text="0.2 秒")
-        self.speed_val_label.pack(anchor="w", padx=40, pady=0)
+        hk_frame = ctk.CTkFrame(self.frame_settings, fg_color="transparent")
+        hk_frame.pack(fill="x", padx=20)
         
-        self.slider_speed = ctk.CTkSlider(self.frame_settings, from_=0.1, to=2.0, number_of_steps=19, command=self.on_speed_change)
-        self.slider_speed.set(0.2)
-        self.slider_speed.pack(fill="x", padx=20, pady=10)
+        # Start Key
+        ctk.CTkLabel(hk_frame, text="开始脚本:").grid(row=0, column=0, padx=5, pady=5, sticky="e")
+        self.btn_bind_start = ctk.CTkButton(hk_frame, text=self.hk_start.upper(), width=120, fg_color="#555555", command=lambda: self.start_bind_hotkey("start"))
+        self.btn_bind_start.grid(row=0, column=1, padx=5, pady=5)
         
-        ctk.CTkLabel(self.frame_settings, text="(越左越快，但也受电脑性能限制)", text_color="gray", font=("Microsoft YaHei", 10)).pack(anchor="w", padx=20)
+        # Stop Key
+        ctk.CTkLabel(hk_frame, text="停止脚本:").grid(row=1, column=0, padx=5, pady=5, sticky="e")
+        self.btn_bind_stop = ctk.CTkButton(hk_frame, text=self.hk_stop.upper(), width=120, fg_color="#555555", command=lambda: self.start_bind_hotkey("stop"))
+        self.btn_bind_stop.grid(row=1, column=1, padx=5, pady=5)
+        
+        ctk.CTkLabel(hk_frame, text="点击按钮后按下任意键 (支持组合键)", text_color="gray", font=("Consolas", 10)).grid(row=2, column=0, columnspan=2, pady=5)
         
         # 版本信息
         ctk.CTkLabel(self.frame_settings, text="\n\nMedian Washer Pro v2.0\nOptimized for Game Experience", text_color="#555555").pack(side="bottom", pady=20)
 
+    def start_bind_hotkey(self, key_type):
+        """开始捕获快捷键，阻塞式但不冻结GUI"""
+        
+        # 1. 确定目标按钮和原始文本
+        if key_type == "start":
+            target_btn = self.btn_bind_start
+        else:
+            target_btn = self.btn_bind_stop
+            
+        # 2. 更新UI提示
+        target_btn.configure(text="请按下组合键...", fg_color="#FFA500")
+        self.btn_bind_start.configure(state="disabled")
+        self.btn_bind_stop.configure(state="disabled")
+        
+        # 3. 启动监听线程
+        def listening_thread():
+            try:
+                # 简单防抖，防止立刻捕获到这就点击的 Enter
+                time.sleep(0.3)
+                
+                print(f"正在等待输入 {key_type} 快捷键...")
+                
+                # 核心：使用 keyboard.read_hotkey() 阻塞等待
+                # suppress=False 表示按键依然会传递给系统，不会被吞掉
+                hotkey = keyboard.read_hotkey(suppress=False)
+                
+                # 捕获完成后，在主线程更新
+                self.after(0, lambda: self._on_hotkey_captured(key_type, hotkey))
+                
+            except Exception as e:
+                print(f"快捷键捕获异常: {e}")
+                self.after(0, self._reset_bind_ui)
+
+        threading.Thread(target=listening_thread, daemon=True).start()
+
+    def _on_hotkey_captured(self, key_type, hotkey_str):
+        """捕获完成后的回调"""
+        if not hotkey_str:
+            print("捕获到的快捷键为空")
+            self._reset_bind_ui()
+            return
+            
+        final_hk = hotkey_str.lower()
+        print(f"捕获成功: {final_hk}")
+
+        # 保存到数据库和内存
+        if key_type == "start":
+            self.hk_start = final_hk
+            self.db.set("hotkey_start", final_hk)
+        else:
+            self.hk_stop = final_hk
+            self.db.set("hotkey_stop", final_hk)
+            
+        # 恢复UI 并 重新注册
+        self._reset_bind_ui()
+        self._register_hotkeys()
+
+    def _reset_bind_ui(self, *args):
+        """恢复按钮状态"""
+        try:
+            self.btn_bind_start.configure(state="normal", text=self.hk_start.upper(), fg_color="#555555")
+            self.btn_bind_stop.configure(state="normal", text=self.hk_stop.upper(), fg_color="#555555")
+        except: pass
+
+        
     def on_speed_change(self, value):
         self.speed_val_label.configure(text=f"{value:.1f} 秒")
 
@@ -433,48 +528,50 @@ class App(ctk.CTk):
                 pass
         
         def on_save(data):
+            if self.current_affix_id is None:
+                print("错误: 无法保存，因为未关联到数据库ID (可能是内置规则或尚未保存)")
+                return
+                
             json_str = json.dumps(data, ensure_ascii=False)
-            self.current_rule_content = json_str
-            print("规则详情已更新至内存（尚未保存到数据库，请点击保存按钮）。")
+            
+            # 直接更新数据库
+            # 注意: 这里使用 self.combo_affix_mgr.get() 获取当前名称，保持名称不变
+            current_name = self.combo_affix_mgr.get()
+            success = self.db.update_affix(self.current_affix_id, json_str, current_name)
+            
+            if success:
+                print(f"规则 [{current_name}] 已成功更新！")
+                self._load_data()
+                # 恢复选中状态
+                self.combo_affix_mgr.set(current_name)
+                self.on_affix_mgr_change(current_name)
+            else:
+                print("保存失败。")
             
         ComplexRuleEditor(self, initial_data=initial_data, callback=on_save)
 
-    def save_overwrite_rule(self):
-        """保存并覆盖"""
-        if not self.current_rule_content:
-            print("错误：当前无规则内容")
-            return
-            
-        choice = self.combo_affix_mgr.get() # 从管理Tab获取当前选中的名称
-        
-        # DB 配置
-        if self.current_affix_id is not None:
-             # ... (逻辑同前，但稍微调整提示)
-            success = self.db.update_affix(self.current_affix_id, self.current_rule_content, choice)
-            if success:
-                print(f"成功更新规则: {choice}")
-                self._load_data() 
-            else:
-                print("更新失败。")
-        else:
-             print("错误：请先选择一个规则。")
 
-    def save_new_rule(self):
-         # ...逻辑不变
-        if not self.current_rule_content:
-            print("错误：当前无规则内容")
-            return
+    def create_new_rule(self):
+        """新建规则"""
+        def on_create(data):
+            if not data: return
             
-        import customtkinter as ctk 
-        dialog = ctk.CTkInputDialog(text="请输入新规则名称:", title="保存新规则")
-        name = dialog.get_input()
-        if name:
-            success = self.db.add_affix(self.current_rule_content, name)
-            if success:
-                print(f"新规则 [{name}] 已保存。")
-                self._load_data() 
-                self.combo_affix.set(name)
-                self.on_affix_change(name)
+            import customtkinter as ctk 
+            dialog = ctk.CTkInputDialog(text="请输入新规则名称:", title="保存新规则")
+            name = dialog.get_input()
+            if name:
+                json_str = json.dumps(data, ensure_ascii=False)
+                success = self.db.add_affix(json_str, name)
+                if success:
+                    print(f"新规则 [{name}] 已保存。")
+                    self._load_data() 
+                    self.combo_affix.set(name)
+                    self.on_affix_change(name)
+                else:
+                    print(f"保存失败，可能是名称重复。")
+
+        ComplexRuleEditor(self, initial_data=None, callback=on_create)
+
 
     def rename_current_rule(self):
         choice = self.combo_affix_mgr.get() # 从管理Tab获取
@@ -639,17 +736,18 @@ class App(ctk.CTk):
                 
             debug_mode = self.debug_mode_var.get()
             bg_mode = self.background_mode_var.get()
-            interval_val = self.slider_speed.get()
             
-            print(f"正在启动... 速度间隔: {interval_val:.2f}s, 调试: {debug_mode}, 后台模式: {bg_mode}")
+            print(f"正在启动... 调试: {debug_mode}, 后台模式: {bg_mode}, 停止键: {self.hk_stop}")
                 
             self.washer = GearWasher(tesseract_cmd=self.ocr_path, 
                                     debug_mode=debug_mode,
-                                    background_mode=bg_mode)
+                                    background_mode=bg_mode,
+                                    stop_key=self.hk_stop)
             
             self.washer.gear_pos = cfg['gear_pos']
             self.washer.window_title = cfg.get('window_title')
-            self.washer.interval = interval_val # SET INTERVAL
+            # 使用极速模式: 0.05-0.1s
+            self.washer.interval = 0.1 
             
             p1, p2 = cfg['affix_points']
             x = min(p1[0], p2[0])

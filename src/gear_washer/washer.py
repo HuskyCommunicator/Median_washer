@@ -11,12 +11,13 @@ from .screen import ScreenReader
 from . import win32_utils # 导入窗口工具
 
 class GearWasher:
-    def __init__(self, tesseract_cmd=None, debug_mode=False, ocr_scale_factor=2.5, background_mode=False):
+    def __init__(self, tesseract_cmd=None, debug_mode=False, ocr_scale_factor=2.5, background_mode=False, stop_key='home'):
         self.matcher = AffixMatcher()
         self.screen = ScreenReader(tesseract_cmd, debug_mode=debug_mode)
         self.debug_mode = debug_mode
         self.background_mode = background_mode
         self.ocr_scale_factor = ocr_scale_factor  # OCR图片放大倍数，原图字高20px左右，2.5倍放大到50px最佳
+        self.stop_key = stop_key # 停止热键
         
         # 默认配置
         self.gear_pos = None     # (x, y) 装备悬停位置 (可能是相对坐标)
@@ -32,14 +33,18 @@ class GearWasher:
         if keyboard:
             try:
                 # 注册全局热键，确保即使在 busy 时也能捕获按键
-                keyboard.add_hotkey('home', self._on_stop_signal)
+                # 注意：如果 gui 已经注册了 stop_key，这里再次注册可能会冲突或冗余，
+                # 但为了保证独立运行时的健壮性，我们可以尝试注册。
+                # 更好的做法是由外部控制 stop()，这里只作为备用兜底。
+                pass 
+                # keyboard.add_hotkey(self.stop_key, self._on_stop_signal)
             except Exception as e:
                 print(f"热键注册失败: {e}")
 
     def _on_stop_signal(self):
-        """Home键的回调函数"""
+        """停止信号回调"""
         if not self.stop_requested:
-            print("\n>>> 已捕获 HOME 键，正在通过信号停止... <<<")
+            print(f"\n>>> 已捕获停止信号，正在停止... <<<")
             self.stop_requested = True
 
     def stop(self):
@@ -159,15 +164,23 @@ class GearWasher:
 
     def _check_stop(self):
         """检查是否有停止信号"""
-        # 1. 检查标志位 (由 hotkey 设置)
+        # 1. 检查标志位
         if self.stop_requested:
             return True
             
         # 2. 直接检查按键状态 (作为备用)
-        if keyboard and keyboard.is_pressed('home'):
-            self.stop_requested = True # 确保标志位同步
-            print("\n\n>>> 检测到 HOME 键 (直接)，正在停止... <<<")
-            return True
+        if keyboard:
+            try:
+                # 兼容组合键检测可能比较复杂，这里只做简单的单键检测
+                # 如果用户设置了 ctrl+plus，keyboard.is_pressed('ctrl+plus') 是支持的
+                if keyboard.is_pressed(self.stop_key):
+                    if not self.stop_requested: # 防止重复日志
+                        print(f"\n\n>>> 检测到 {self.stop_key} (直接)，正在停止... <<<")
+                    self.stop_requested = True 
+                    return True
+            except:
+                # 某些键名可能导致异常，忽略之
+                pass
             
         return False
 
