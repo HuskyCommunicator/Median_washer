@@ -154,69 +154,143 @@ class ComplexRuleEditor(ctk.CTkToplevel):
             "affix_rows": affix_rows
         })
 
-    def add_affix_row(self, container, rows_list, data=""):
+
+    def add_affix_row(self, container, rows_list, data=None):
+        """添加一行词缀输入框，支持数值范围"""
+        if data is None: data = ""
+        
         row_frame = ctk.CTkFrame(container, fg_color="transparent")
         row_frame.pack(fill="x", pady=2)
         
+        # 1. 解析初始数据
         text_val = ""
+        min_val = ""
+        max_val = ""
         
         if isinstance(data, dict):
             text_val = data.get("name", "")
+            min_val = str(data.get("min_value", ""))
+            max_val = str(data.get("max_value", ""))
         elif isinstance(data, str):
             text_val = data
         
-        entry = ctk.CTkEntry(row_frame, placeholder_text="输入词缀名称")
-        entry.pack(side="left", fill="x", expand=True, padx=(0, 5))
-        if text_val:
-            entry.insert(0, text_val)
-            
-        btn_del = ctk.CTkButton(row_frame, text="-", width=30, height=24, fg_color="darkred", 
-                                command=lambda: self.remove_affix_row(row_frame, rows_list))
-        btn_del.pack(side="right")
+        # 2. 词缀名称输入
+        entry_name = ctk.CTkEntry(row_frame, placeholder_text="词缀名 (如: 力量)", width=200)
+        entry_name.pack(side="left", fill="x", expand=True, padx=(0, 5))
+        if text_val: entry_name.insert(0, text_val)
+        
+        # 3. 数值范围输入 (Min/Max)
+        # 用 Label 提示 "值 >="
+        ctk.CTkLabel(row_frame, text="值>=", text_color="gray", width=30).pack(side="left")
+        entry_min = ctk.CTkEntry(row_frame, width=50, placeholder_text="-∞")
+        entry_min.pack(side="left", padx=2)
+        if min_val: entry_min.insert(0, min_val)
+        
+        ctk.CTkLabel(row_frame, text="且<=", text_color="gray", width=30).pack(side="left")
+        entry_max = ctk.CTkEntry(row_frame, width=50, placeholder_text="+∞")
+        entry_max.pack(side="left", padx=2)
+        if max_val: entry_max.insert(0, max_val)
 
-        rows_list.append({"frame": row_frame, "entry": entry})
+        # 4. 删除按钮
+        btn_del = ctk.CTkButton(row_frame, text="🗑", width=30, height=28, fg_color="#333", hover_color="#555",
+                                command=lambda: self._remove_affix_row_helper(row_frame, rows_list))
+        btn_del.pack(side="right", padx=(5, 0))
 
-    def remove_affix_row(self, row_frame, rows_list):
+        # 保存引用
+        rows_list.append({
+            "frame": row_frame, 
+            "entry_name": entry_name,
+            "entry_min": entry_min,
+            "entry_max": entry_max
+        })
+
+    def _remove_affix_row_helper(self, row_frame, rows_list):
+        """辅助删除函数，确保从列表正确移除"""
         row_frame.destroy()
-        # 从列表移除
+        # 从列表移除引用
+        # 注意: 不能直接 remove row_frame，因为列表存的是 dict
+        target_idx = -1
         for i, item in enumerate(rows_list):
             if item["frame"] == row_frame:
-                del rows_list[i]
+                target_idx = i
                 break
+        if target_idx != -1:
+            del rows_list[target_idx]
 
-    def remove_group(self, frame):
-        # 从 UI 移除
-        frame.destroy()
-        # 从列表移除引用
-        self.groups = [g for g in self.groups if g["frame"] != frame]
+    def remove_group(self, frame_or_dict):
+        # 找到对应的 dict
+        target_g = None
+        target_frame = None
+        
+        if isinstance(frame_or_dict, dict):
+            target_g = frame_or_dict
+            target_frame = target_g["frame"]
+        else:
+            target_frame = frame_or_dict
+            # 遍历列表找到对应 dict
+            for g in self.groups:
+                if g["frame"] == target_frame:
+                    target_g = g
+                    break
+        
+        if target_g:
+            target_frame.destroy()
+            self.groups = [g for g in self.groups if g != target_g]
+        else:
+            # 兜底
+            try:
+                target_frame.destroy()
+            except: pass
 
     def save_data(self):
         result = []
+        # 遍历所有大组
         for g in self.groups:
-            display_type = g["type_var"].get()
+            # 1. 获取组类型 (AND/OR/COUNT/NOT)
+            display_type = ""
+            if hasattr(g["type_var"], 'get'): # StringVar
+                display_type = g["type_var"].get()
+            else:
+                display_type = g["type_var"] # 可能已经是 str?
+                
             g_type = REVERSE_TYPE_MAP.get(display_type, "AND")
             
-            # 解析 min/max
-            min_v = g["entry_min"].get().strip()
-            max_v = g["entry_max"].get().strip()
+            # 2. 获取组的全局限制 (COUNT min/max)
+            group_min = g["entry_min"].get().strip()
+            group_max = g["entry_max"].get().strip()
             
-            # 解析词缀
+            # 3. 获取组内的所有词缀
             affixes = []
             for row in g["affix_rows"]:
-                val = row["entry"].get().strip()
-                if val:
-                    affixes.append(val)
+                name = row["entry_name"].get().strip()
+                min_v = row["entry_min"].get().strip()
+                max_v = row["entry_max"].get().strip()
+                
+                if not name:
+                    continue
+                    
+                # 构造词缀对象
+                # 如果没有数值限制，存为字符串(保持简洁)；否则存为字典
+                if not min_v and not max_v:
+                    affixes.append(name)
+                else:
+                    affix_obj = {"name": name}
+                    if min_v: affix_obj["min_value"] = float(min_v)
+                    if max_v: affix_obj["max_value"] = float(max_v)
+                    affixes.append(affix_obj)
             
-            item = {
+            # 构造组对象
+            group_item = {
                 "type": g_type,
                 "affixes": affixes
             }
             
+            # 如果是 COUNT 类型，补充 limit
             if g_type == 'COUNT':
-                if min_v.isdigit(): item['min'] = int(min_v)
-                if max_v.isdigit(): item['max'] = int(max_v)
+                if group_min and group_min.isdigit(): group_item['min'] = int(group_min)
+                if group_max and group_max.isdigit(): group_item['max'] = int(group_max)
                 
-            result.append(item)
+            result.append(group_item)
             
         if self.callback:
             self.callback(result)
