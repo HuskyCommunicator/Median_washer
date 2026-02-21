@@ -51,18 +51,12 @@ class SettingTab(ctk.CTkFrame):
         )
         self.check_debug.grid(row=1, column=0, sticky="w", padx=20, pady=(0, 10))
         
-        # 后台模式
+        # 后台模式 - 强制开启且不可修改
         if not hasattr(self.app, 'background_mode_var'):
             self.app.background_mode_var = ctk.BooleanVar(value=True)
+        else:
+            self.app.background_mode_var.set(True)
 
-        self.check_bg = ctk.CTkSwitch(
-            self.card_mode, 
-            text="后台静默模式 (不干扰前台操作)",
-            variable=self.app.background_mode_var,
-            font=("Microsoft YaHei", 13),
-            onvalue=True, offvalue=False
-        )
-        self.check_bg.grid(row=2, column=0, sticky="w", padx=20, pady=(0, 20))
 
 
         # --- 卡片 2: 快捷键设置 ---
