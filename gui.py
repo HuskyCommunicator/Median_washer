@@ -6,6 +6,7 @@ import time
 import io
 import queue
 import json
+import webbrowser
 try:
     import keyboard
 except ImportError:
@@ -316,33 +317,39 @@ class App(ctk.CTk):
         except: pass
 
     def _show_guide_window(self):
-        """显示操作手册窗口"""
+        """显示操作手册 (在浏览器中打开HTML)"""
         try:
-            guide_path = os.path.join(self.base_dir, '操作手册.md')
-            if not os.path.exists(guide_path):
-                guide_content = "找不到操作手册.md 文件，请检查路径。"
+            guide_path = os.path.join(self.base_dir, '操作手册.html')
+            
+            if os.path.exists(guide_path):
+                webbrowser.open_new_tab(f'file://{os.path.abspath(guide_path)}')
             else:
-                with open(guide_path, 'r', encoding='utf-8') as f:
-                    guide_content = f.read()
+                # 兼容性 fallback: 找不到 HTML 就试图找 MD
+                md_path = os.path.join(self.base_dir, '操作手册.md')
+                if os.path.exists(md_path):
+                    # 如果只有 MD，回退到弹窗显示
+                    self._show_text_window("操作手册", self._read_file(md_path))
+                else:
+                    print("❌ 找不到 '操作手册.html' 或 '操作手册.md'")
         except Exception as e:
-            guide_content = f"读取操作手册失败: {e}"
+            print(f"打开操作手册失败: {e}")
 
-        # 创建新窗口
-        guide_window = ctk.CTkToplevel(self)
-        guide_window.title("操作指南 - Median Washer Pro")
-        guide_window.geometry("800x600")
-        
-        # 总是置顶
-        guide_window.attributes("-topmost", True)
-        
-        # 文本显示区域
-        textbox = ctk.CTkTextbox(guide_window, font=("Consolas", 14))
-        textbox.pack(fill="both", expand=True, padx=10, pady=10)
-        textbox.insert("0.0", guide_content)
-        textbox.configure(state="disabled") # 只读
+    def _read_file(self, path):
+         try:
+             with open(path, 'r', encoding='utf-8') as f:
+                 return f.read()
+         except:
+             return "文件读取失败"
 
-        # 聚焦窗口
-        guide_window.focus()
+    def _show_text_window(self, title, content):
+          """后备文本显示窗口"""
+          w = ctk.CTkToplevel(self)
+          w.title(title)
+          w.geometry("800x600")
+          tb = ctk.CTkTextbox(w, font=("Consolas", 14))
+          tb.pack(fill="both", expand=True, padx=10, pady=10)
+          tb.insert("0.0", content)
+          tb.configure(state="disabled")
 
     def on_affix_mgr_change(self, choice):
         """Tab3 规则管理选择变化 - 代理给主逻辑"""

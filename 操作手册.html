@@ -3,353 +3,148 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>洗炼助手 Pro - 操作手册</title>
+    <title>洗炼助手 Pro - 快速上手指南</title>
     <style>
         :root {
-            --bg-color: #f4f6f8;
-            --text-color: #2c3e50;
-            --sidebar-width: 280px;
-            --primary-color: #3498db;
-            --accent-color: #e74c3c;
-            --code-bg: #ecf0f1;
-            --card-bg: #ffffff;
-            --border-color: #e1e4e8;
-        }
-
-        @media (prefers-color-scheme: dark) {
-            :root {
-                --bg-color: #1a1b1e;
-                --text-color: #dcdcdc;
-                --primary-color: #5da9e9;
-                --code-bg: #2d2d2d;
-                --card-bg: #25262b;
-                --border-color: #373a40;
-            }
+            --primary-color: #2ea043;
+            --bg-color: #0d1117;
+            --card-bg: #161b22;
+            --text-color: #c9d1d9;
+            --heading-color: #ffffff;
+            --border-color: #30363d;
+            --accent-color: #58a6ff;
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-            margin: 0;
-            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
             background-color: var(--bg-color);
             color: var(--text-color);
             line-height: 1.6;
+            margin: 0;
+            padding: 20px;
         }
 
-        /* 侧边栏导航 */
-        .sidebar {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: var(--sidebar-width);
-            height: 100vh;
-            background-color: var(--card-bg);
-            border-right: 1px solid var(--border-color);
-            padding: 2rem 1.5rem;
-            box-sizing: border-box;
-            overflow-y: auto;
-        }
-
-        .logo {
-            font-size: 1.4rem;
-            font-weight: bold;
-            color: var(--primary-color);
-            margin-bottom: 2rem;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-
-        .nav-links {
-            list-style: none;
-            padding: 0;
-        }
-
-        .nav-links li {
-            margin-bottom: 0.8rem;
-        }
-
-        .nav-links a {
-            text-decoration: none;
-            color: var(--text-color);
-            font-weight: 500;
-            display: block;
-            padding: 0.5rem;
-            border-radius: 6px;
-            transition: background 0.2s;
-            opacity: 0.8;
-        }
-
-        .nav-links a:hover, .nav-links a.active {
-            background-color: var(--bg-color);
-            color: var(--primary-color);
-            opacity: 1;
-        }
-
-        .nav-links .sub-nav {
-            margin-left: 1rem;
-            font-size: 0.9rem;
-            border-left: 2px solid var(--border-color);
-            padding-left: 0.8rem;
-            margin-top: 0.4rem;
-        }
-
-        /* 主要内容区域 */
-        .main-content {
-            margin-left: var(--sidebar-width);
-            padding: 3rem 4rem;
+        .container {
             max-width: 900px;
+            margin: 0 auto;
         }
 
         h1, h2, h3 {
-            color: var(--text-color);
-            margin-top: 2rem;
+            color: var(--heading-color);
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 0.3em;
         }
 
-        h1 { font-size: 2.2rem; border-bottom: 2px solid var(--border-color); padding-bottom: 0.5rem; }
-        h2 { font-size: 1.6rem; color: var(--primary-color); margin-top: 3rem; }
-        h3 { font-size: 1.3rem; margin-top: 2rem; }
+        h1 { font-size: 2em; text-align: center; border-bottom: none; }
+        h2 { margin-top: 1.5em; font-size: 1.5em; color: var(--accent-color); }
+        h3 { font-size: 1.2em; margin-top: 1.2em; }
 
         .card {
             background-color: var(--card-bg);
             border: 1px solid var(--border-color);
-            border-radius: 8px;
-            padding: 1.5rem;
-            margin: 1.5rem 0;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            border-radius: 6px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
         }
 
-        ul, ol {
-            padding-left: 1.5rem;
-        }
-
-        /* 关键强调样式 */
-        code {
-            background-color: var(--code-bg);
-            padding: 0.2rem 0.4rem;
-            border-radius: 4px;
-            font-family: Consolas, Monaco, "Courier New", monospace;
-            font-size: 0.9em;
-            color: var(--accent-color);
-        }
-
-        .step-list {
-            position: relative;
-            padding-left: 20px;
-        }
-        
-        blockquote {
-            background-color: var(--code-bg);
-            border-left: 4px solid var(--primary-color);
-            margin: 1.5rem 0;
-            padding: 1rem;
-            border-radius: 0 4px 4px 0;
-        }
-        
-        .feature-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 1rem;
-            margin-top: 1rem;
-        }
-        
-        .feature-item {
-            background-color: var(--card-bg);
-            border: 1px solid var(--border-color);
-            padding: 1rem;
-            border-radius: 8px;
-        }
-
-        .badge {
+        .step-badge {
             display: inline-block;
-            padding: 2px 8px;
-            border-radius: 12px;
-            font-size: 0.8rem;
-            font-weight: bold;
             background-color: var(--primary-color);
             color: white;
-            margin-right: 8px;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            text-align: center;
+            line-height: 24px;
+            font-weight: bold;
+            margin-right: 10px;
         }
-        
-        .badge.warning { background-color: #f39c12; }
-        .badge.danger { background-color: var(--accent-color); }
 
-        /* 响应式调整 */
-        @media (max-width: 768px) {
-            .sidebar {
-                display: none; /* 移动端暂时隐藏侧边栏 */
-            }
-            .main-content {
-                margin-left: 0;
-                padding: 1.5rem;
-            }
+        .key {
+            background-color: #24292f;
+            border: 1px solid #484f58;
+            border-radius: 4px;
+            padding: 2px 6px;
+            font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+            font-size: 0.9em;
+            color: #f0f6fc;
+            box-shadow: inset 0 -1px 0 #484f58;
+        }
+
+        ul { padding-left: 20px; }
+        li { margin-bottom: 8px; }
+        
+        strong { color: var(--heading-color); }
+
+        .warning {
+            border-left: 4px solid #d29922;
+            background-color: rgba(210, 153, 34, 0.1);
+            padding: 10px 15px;
+            margin: 15px 0;
+            border-radius: 0 4px 4px 0;
+        }
+
+        footer {
+            text-align: center;
+            margin-top: 40px;
+            font-size: 0.9em;
+            color: #8b949e;
         }
     </style>
 </head>
 <body>
+    <div class="container">
+        <h1>洗炼助手 Pro <span style="font-size:0.5em;color:#8b949e">Median Washer Pro</span></h1>
 
-    <nav class="sidebar">
-        <div class="logo">
-            ⚔️ 洗炼助手 Pro
+        <div class="warning">
+            ⚠️ <strong>必读提示：</strong> 请务必以 <strong>管理员身份</strong> 运行本程序，游戏请设置为 <strong>窗口模式</strong>。
         </div>
-        <ul class="nav-links">
-            <li><a href="#intro" class="active">项目介绍</a></li>
-            <li>
-                <a href="#quick-start">快速开始</a>
-                <div class="sub-nav">
-                    <a href="#prep">1. 运行前准备</a>
-                    <a href="#step1">2. 装备管理</a>
-                    <a href="#step2">3. 规则配置</a>
-                    <a href="#step3">4. 开始洗炼</a>
-                </div>
-            </li>
-            <li><a href="#stop-control">停止与控制</a></li>
-            <li><a href="#faq">常见问题 (FAQ)</a></li>
-            <li><a href="#tech">技术栈</a></li>
-        </ul>
-    </nav>
 
-    <main class="main-content">
-        <h1 id="intro">洗炼助手 Pro (MedianWasher Pro)</h1>
-        <p>专为暗黑破坏神2（特别是 Median XL 模组）设计的自动化装备洗炼工具。利用先进的 OCR 视觉技术，为您解放双手。</p>
-
-        <section class="card">
-            <h3 style="margin-top:0">核心功能亮点</h3>
-            <div class="feature-grid">
-                <div class="feature-item">
-                    <strong>👀 OCR 智能识别</strong><br>需读取内存，纯视觉识别，安全可靠。支持多语言识别。
-                </div>
-                <div class="feature-item">
-                    <strong>🖥️ 现代化 GUI</strong><br>基于 CustomTkinter 的深色主题界面，操作直观。
-                </div>
-                <div class="feature-item">
-                    <strong>⚙️ 灵活规则</strong><br>支持简单关键词与 JSON 复杂逻辑（AND/OR/COUNT）。
-                </div>
-                <div class="feature-item">
-                    <strong>🔧 交互式定位</strong><br>所见即所得的坐标配置向导，无需手动输入坐标。
-                </div>
-            </div>
-        </section>
-
-        <h2 id="quick-start">🚀 快速开始</h2>
-
-        <h3 id="prep">1. 运行前准备</h3>
-        <blockquote>
-            <span class="badge warning">重要</span>由于程序需要监听全局键盘事件，<strong>必须以管理员身份运行</strong>生成的 <code>.exe</code> 文件或终端。
-        </blockquote>
-        <ul>
-            <li><strong>权限要求</strong>：右键点击程序 -> "以管理员身份运行"。</li>
-            <li><strong>游戏设置</strong>：建议将游戏窗口化运行，以确保 OCR 截图位置准确。</li>
-        </ul>
-
-        <h3 id="step1">2. 软件使用流程</h3>
-        
         <div class="card">
-            <h4>第一步：装备管理 (坐标校准)</h4>
+            <h2>🚀 3步快速开始</h2>
+            
+            <h3><span class="step-badge">1</span>设置装备位置</h3>
+            <p>进入 <strong>【装备配置】</strong> 页，新建一个配置，点击 <span class="key">🎯 重新定位</span>，按屏幕提示操作：</p>
             <ol>
-                <li>进入 <strong>[装备管理]</strong> 标签页。</li>
-                <li>点击 <strong>[新建装备配置]</strong> 或对已有配置点击 <strong>[重新定位]</strong>。</li>
-                <li>按照日志提示完成三步校准：
-                    <ul>
-                        <li><span class="badge">绑定窗口</span> 点击游戏窗口使其激活，按 <code>空格键</code>。</li>
-                        <li><span class="badge">装备位置</span> 鼠标悬停在装备图标上，按 <code>空格键</code>。</li>
-                        <li><span class="badge">词缀区域</span> 鼠标分别点击属性文字区域的 <strong>左上角</strong> 和 <strong>右下角</strong>，各按一次 <code>空格键</code>。</li>
-                    </ul>
-                </li>
-                <li>完成后点击 <strong>[保存配置]</strong>。</li>
+                <li>点击游戏窗口（激活窗口） -> 按 <span class="key">空格</span></li>
+                <li>鼠标悬停在装备图标上 -> 按 <span class="key">空格</span></li>
+                <li>鼠标点击属性文字的 <strong>左上角</strong> -> 按 <span class="key">空格</span></li>
+                <li>鼠标点击属性文字的 <strong>右下角</strong> -> 按 <span class="key">空格</span></li>
             </ol>
+
+            <h3><span class="step-badge">2</span>设定规则</h3>
+            <p>进入 <strong>【规则管理】</strong> 页，新建规则或编辑现有规则。</p>
+            <ul>
+                <li><strong>简单模式</strong>：直接输入想要查找的词，如 "全技能"。</li>
+                <li><strong>高级模式</strong>：点击 <span class="key">📝 编辑规则详情</span>，设置如 "力量 > 50 且 敏捷 > 50" 的复杂逻辑。</li>
+            </ul>
+
+            <h3><span class="step-badge">3</span>一键运行</h3>
+            <p>进入 <strong>【运行控制】</strong> 页，选中刚才配置的装备和规则，点击 <span class="key">🚀 开始洗炼</span> 或按快捷键。</p>
         </div>
 
-        <div class="card" id="step2">
-            <h4>第二步：规则配置</h4>
-            <ol>
-                <li>进入 <strong>[规则管理]</strong> 标签页。</li>
-                <li><strong>简单新建</strong>：直接在输入框输入关键词（如 <code>冰霜抗性</code>）。</li>
-                <li><strong>高级编辑</strong>：点击 <strong>[高级编辑器]</strong> 使用 JSON 格式编写逻辑。</li>
-                <li><strong>默认库</strong>：点击 <strong>[📥 导入默认规则库]</strong> 快速开始。</li>
-            </ol>
+        <div class="card">
+            <h2>⌨️ 快捷键控制</h2>
+            <ul>
+                <li><strong>启动脚本</strong>：默认 <span class="key">END</span></li>
+                <li><strong>停止脚本</strong>：默认 <span class="key">HOME</span></li>
+            </ul>
+            <p style="font-size: 0.9em; color: #8b949e;">* 可以在【系统设置】中更改这些快捷键。</p>
         </div>
 
-        <div class="card" id="step3">
-            <h4>第三步：开始洗炼</h4>
-            <ol>
-                <li>进入 <strong>[运行控制]</strong> 标签页。</li>
-                <li>左侧选择已配置的 <strong>装备</strong>。</li>
-                <li>右侧选择要使用的 <strong>规则</strong>。</li>
-                <li>检查游戏窗口可见且未被遮挡。</li>
-                <li>点击 <strong>[开始洗炼]</strong> 或按快捷键 <code>END</code>。</li>
-            </ol>
+        <div class="card">
+            <h2>❓ 常见问题</h2>
+            <ul>
+                <li><strong>没反应？</strong> 请确认已用管理员身份运行，且输入法已切换为英文。</li>
+                <li><strong>识别不准？</strong> 确保属性区域框选准确（不要包含花纹边框），且游戏分辨率适中。</li>
+                <li><strong>找不到OCR？</strong> 请确保 tesseract 文件完整且路径正确。</li>
+            </ul>
         </div>
 
-        <h2 id="stop-control">🛑 停止与控制</h2>
-        <table style="width: 100%; border-collapse: collapse; margin-top: 1rem;">
-            <tr style="background-color: var(--code-bg); text-align: left;">
-                <th style="padding: 10px; border: 1px solid var(--border-color);">功能</th>
-                <th style="padding: 10px; border: 1px solid var(--border-color);">快捷键</th>
-                <th style="padding: 10px; border: 1px solid var(--border-color);">说明</th>
-            </tr>
-            <tr>
-                <td style="padding: 10px; border: 1px solid var(--border-color);">开始</td>
-                <td style="padding: 10px; border: 1px solid var(--border-color);"><code>END</code></td>
-                <td style="padding: 10px; border: 1px solid var(--border-color);">一键启动当前配置</td>
-            </tr>
-            <tr>
-                <td style="padding: 10px; border: 1px solid var(--border-color);">强制停止</td>
-                <td style="padding: 10px; border: 1px solid var(--border-color);"><code>HOME</code></td>
-                <td style="padding: 10px; border: 1px solid var(--border-color);">脚本运行期间的紧急停止开关</td>
-            </tr>
-        </table>
-
-        <h2 id="faq">⚠️ 常见问题 (FAQ)</h2>
-        
-        <div class="feature-item" style="margin-bottom: 1rem;">
-            <strong>Q: 按空格键没反应？</strong>
-            <p>A: 99% 也是因为权限问题。请确保程序以<strong>管理员身份运行</strong>，否则 Windows 会拦截底层键盘钩子。</p>
-        </div>
-        
-        <div class="feature-item" style="margin-bottom: 1rem;">
-            <strong>Q: 识别率低，经常识别错误？</strong>
-            <p>
-                1. 确保游戏字体清晰，避免半透明背景干扰。<br>
-                2. 校准时，<strong>词缀区域</strong>尽量只框选纯文字部分，不要包含边框。<br>
-                3. 可在设置中调整 <code>ocr_scale_factor</code>（默认 2.5 倍），但也增加 CPU 负担。
-            </p>
-        </div>
-
-        <div class="feature-item" style="margin-bottom: 1rem;">
-            <strong>Q: 找不到 OCR/Tesseract 文件？</strong>
-            <p>A: 确保 <code>OCR</code> 文件夹位于程序同级目录下。如果看到报错 `WinError 2`，通常是 OCR 路径不对。</p>
-        </div>
-
-        <h2 id="tech">🛠️ 技术栈</h2>
-        <p>本项目由以下开源技术构建：</p>
-        <ul>
-            <li><strong>Python 3.14</strong> - 核心逻辑</li>
-            <li><strong>CustomTkinter</strong> - 现代化 GUI 界面</li>
-            <li><strong>Tesseract-OCR</strong> - 视觉识别引擎</li>
-            <li><strong>Keyboard / PyAutoGUI</strong> - 输入控制</li>
-            <li><strong>PyInstaller</strong> - 打包部署</li>
-        </ul>
-        
-        <footer style="margin-top: 4rem; padding-top: 2rem; border-top: 1px solid var(--border-color); text-align: center; color: gray; font-size: 0.9rem;">
-            &copy; 2026 Median Washer Pro | Built for Gamers
+        <footer>
+            Median Washer Pro &copy; 2026 Designed for Median XL Sigma
         </footer>
-    </main>
-
-    <script>
-        // 简单的平滑滚动脚本
-        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-            anchor.addEventListener('click', function (e) {
-                e.preventDefault();
-                document.querySelector(this.getAttribute('href')).scrollIntoView({
-                    behavior: 'smooth'
-                });
-                
-                // 更新激活状态
-                document.querySelectorAll('.nav-links a').forEach(a => a.classList.remove('active'));
-                this.classList.add('active');
-            });
-        });
-    </script>
+    </div>
 </body>
 </html>
