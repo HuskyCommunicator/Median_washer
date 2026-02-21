@@ -171,8 +171,18 @@ class App(ctk.CTk):
         self.log_frame.grid(row=1, column=0, columnspan=2, padx=10, pady=5, sticky="nsew")
         self.grid_rowconfigure(1, weight=1) # 增加日志区域权重
 
-        self.lbl_log_title = ctk.CTkLabel(self.log_frame, text="运行日志", font=("Microsoft YaHei", 12))
-        self.lbl_log_title.pack(anchor="w", padx=5, pady=2)
+        # 日志标题栏
+        self.log_header_frame = ctk.CTkFrame(self.log_frame, fg_color="transparent", height=30)
+        self.log_header_frame.pack(fill="x", padx=5, pady=2)
+
+        self.lbl_log_title = ctk.CTkLabel(self.log_header_frame, text="运行日志", font=("Microsoft YaHei", 12))
+        self.lbl_log_title.pack(side="left", padx=5)
+
+        # 锁定日志视口 Checkbox
+        self.log_lock_var = ctk.BooleanVar(value=False)
+        self.chk_lock_log = ctk.CTkCheckBox(self.log_header_frame, text="锁定视口", variable=self.log_lock_var,
+                                            width=80, height=20, font=("Microsoft YaHei", 11))
+        self.chk_lock_log.pack(side="right", padx=5)
 
         self.log_box = ctk.CTkTextbox(self.log_frame, font=("Consolas", 12), height=150, state="disabled",
                                       text_color="#DDDDDD", fg_color="#1E1E1E", border_width=1, border_color="#333333")
@@ -294,10 +304,16 @@ class App(ctk.CTk):
                 while True:
                     text = self.redirector.queue.get_nowait()
                     self.log_box.insert("end", text)
-                self.log_box.see("end")
             except queue.Empty:
                 pass
             finally:
+                # 无论是否读完，只要是有新内容进来后，尝试滚动
+                if not self.log_lock_var.get():
+                    self.log_box.see("end")
+                    try:
+                        self.log_box.yview_moveto(1.0)
+                    except:
+                        pass
                 self.log_box.configure(state="disabled")
         
         self.after(100, self._check_log_queue)

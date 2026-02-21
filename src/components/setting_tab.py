@@ -17,9 +17,8 @@ class SettingTab(ctk.CTkFrame):
         self.check_debug.pack(anchor="w", padx=20, pady=20)
 
         # 1.5 后台模式
-        self.app.background_mode_var = ctk.BooleanVar(value=False)
-        self.check_background = ctk.CTkSwitch(self.frame_settings, text="后台模式 (实验性, 窗口可被遮挡但不能最小化)", variable=self.app.background_mode_var)
-        self.check_background.pack(anchor="w", padx=20, pady=10)
+        self.app.background_mode_var = ctk.BooleanVar(value=True)
+
         
         # 3. 快捷键设置
         ctk.CTkLabel(self.frame_settings, text="全局快捷键设置:", font=("Microsoft YaHei", 12, "bold")).pack(anchor="w", padx=20, pady=(20, 5))
