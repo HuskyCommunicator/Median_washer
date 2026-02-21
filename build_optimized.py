@@ -34,7 +34,14 @@ def build():
     # 4. 后处理：精简并复制 OCR 目录
     print(">>> 正在复制并精简 OCR 目录...")
     dist_dir = os.path.join(base_dir, 'dist', 'MedianWasher_Pro')
-    dist_ocr_dir = os.path.join(dist_dir, 'OCR')
+    
+    # 自动探测 _internal 目录 (PyInstaller v6+)
+    # 如果存在 _internal，则将 OCR 放进去，保持目录整洁
+    internal_dir = os.path.join(dist_dir, '_internal')
+    if os.path.exists(internal_dir):
+        dist_ocr_dir = os.path.join(internal_dir, 'OCR')
+    else:
+        dist_ocr_dir = os.path.join(dist_dir, 'OCR')
     
     if not os.path.exists(dist_ocr_dir):
         os.makedirs(dist_ocr_dir)
@@ -104,6 +111,13 @@ def build():
     debug_dir = os.path.join(dist_dir, 'ocr_debug')
     if not os.path.exists(debug_dir):
         os.makedirs(debug_dir)
+
+    # 6. 复制操作手册
+    print(">>> 正在复制操作手册...")
+    try:
+        shutil.copy2(os.path.join(base_dir, '操作手册.html'), os.path.join(dist_dir, '操作手册.html'))
+    except FileNotFoundError:
+        print("X 警告：找不到 '操作手册.html'，跳过复制。")
         
     print(f"\n>>> 打包完成！输出目录: {dist_dir}")
     print(">>> 你可以直接压缩该文件夹分享给朋友。")

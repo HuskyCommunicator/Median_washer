@@ -52,18 +52,39 @@ class App(ctk.CTk):
         # 获取基础路径 (兼容 IDE 运行和打包后的 Exe)
         if getattr(sys, 'frozen', False):
             # 如果是打包后的 exe，sys.executable 指向 exe 文件所在目录
-            self.base_dir = os.path.dirname(sys.executable)
+            exe_dir = os.path.dirname(sys.executable)
+            
+            # --- OCR 路径查找逻辑 ---
+            # 1. 优先查找 _internal 目录 (PyInstaller 6.0+)
+            path_check_1 = os.path.join(exe_dir, '_internal', 'OCR', 'tesseract.exe')
+            # 2. 其次查找 exe 同级目录
+            path_check_2 = os.path.join(exe_dir, 'OCR', 'tesseract.exe')
+            
+            if os.path.exists(path_check_1):
+                self.ocr_base = os.path.join(exe_dir, '_internal')
+                print(f"DEBUG: Found tesseract in _internal: {path_check_1}")
+            elif os.path.exists(path_check_2):
+                self.ocr_base = exe_dir
+                print(f"DEBUG: Found tesseract in root: {path_check_2}")
+            else:
+                # 都没有找到，默认放在同级，并在后面可以报错提示用户
+                self.ocr_base = exe_dir
+                print(f"DEBUG: Tesseract not found. Checked: {path_check_1}, {path_check_2}")
+
+            # 配置文件等可能还在 exe 同级目录，所以我们需要区分资源目录和配置目录
+            self.base_dir = exe_dir 
         else:
             # 如果是脚本运行
             self.base_dir = os.path.dirname(os.path.abspath(__file__))
+            self.ocr_base = self.base_dir # 脚本运行时 OCR 就在同一层级
 
         base_dir = self.base_dir # 为了兼容旧代码引用
 
-        self.ocr_path = os.path.join(base_dir, 'OCR', 'tesseract.exe')
+        self.ocr_path = os.path.join(self.ocr_base, 'OCR', 'tesseract.exe')
         
         # 设置 TESSDATA_PREFIX 环境变量，防止 Tesseract 找不到语言包
         # 尤其是在打包后的环境中，必须显式指定
-        tessdata_path = os.path.join(base_dir, 'OCR', 'tessdata')
+        tessdata_path = os.path.join(self.ocr_base, 'OCR', 'tessdata')
         # 即使是 Windows，Tesseract 依然可能被 POSIX 路径习惯影响，尤其是 MSYS2 编译的版本
         # 确保路径不以反斜杠结尾，并且尝试转换为绝对路径
         tessdata_path = os.path.abspath(tessdata_path)
@@ -320,19 +341,30 @@ class App(ctk.CTk):
         """显示操作手册 (在浏览器中打开HTML)"""
         try:
             guide_path = os.path.join(self.base_dir, '操作手册.html')
+            abs_path = os.path.abspath(guide_path)
             
-            if os.path.exists(guide_path):
-                webbrowser.open_new_tab(f'file://{os.path.abspath(guide_path)}')
+            if os.path.exists(abs_path):
+                # webbrowser.open 最好接收 file:/// 协议的 URL
+                url = 'file:///' + abs_path.replace('\\', '/')
+                webbrowser.open_new_tab(url)
             else:
                 # 兼容性 fallback: 找不到 HTML 就试图找 MD
                 md_path = os.path.join(self.base_dir, '操作手册.md')
                 if os.path.exists(md_path):
-                    # 如果只有 MD，回退到弹窗显示
                     self._show_text_window("操作手册", self._read_file(md_path))
                 else:
-                    print("❌ 找不到 '操作手册.html' 或 '操作手册.md'")
+                    # 获取当前目录列表以供调试
+                    try:
+                        files = os.listdir(self.base_dir)
+                        debug_info = f"当前目录 ({self.base_dir}) 内容:\n" + "\n".join(files[:10])
+                    except:
+                        debug_info = "无法读取目录"
+                    
+                    err_msg = f"❌ 找不到 '操作手册.html'\n路径: {abs_path}\n\n{debug_info}"
+                    self._show_text_window("错误", err_msg)
         except Exception as e:
             print(f"打开操作手册失败: {e}")
+            self._show_text_window("错误", f"打开操作手册失败: {e}")
 
     def _read_file(self, path):
          try:
