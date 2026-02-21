@@ -26,21 +26,26 @@ class EquipTab(ctk.CTkFrame):
         
         # 操作按钮区
         self.frame_equip_ops = ctk.CTkFrame(self, fg_color="transparent")
-        self.frame_equip_ops.pack(fill="x", padx=20, pady=20)
+        self.frame_equip_ops.pack(fill="x", padx=15, pady=5)
         
-        # 第一排：主要操作
-        self.btn_new_equip = ctk.CTkButton(self.frame_equip_ops, text="✚ 新建配置", width=120, height=35, command=self.app.new_equip_flow)
-        self.btn_new_equip.grid(row=0, column=0, padx=10, pady=10)
+        # 使用 grid 布局，2列
+        self.frame_equip_ops.grid_columnconfigure(0, weight=1)
+        self.frame_equip_ops.grid_columnconfigure(1, weight=1)
+        
+        # 第1行：主要操作
+        self.btn_new_equip = ctk.CTkButton(self.frame_equip_ops, text="✚ 新建配置", height=40, command=self.app.new_equip_flow)
+        self.btn_new_equip.grid(row=0, column=0, columnspan=2, padx=5, pady=5, sticky="ew")
 
-        self.btn_edit_equip = ctk.CTkButton(self.frame_equip_ops, text="🎯 重新定位", width=120, height=35, fg_color="#555555", command=self.app.edit_current_equip)
-        self.btn_edit_equip.grid(row=0, column=1, padx=10, pady=10)
+        # 第2行：重新定位与重命名
+        self.btn_edit_equip = ctk.CTkButton(self.frame_equip_ops, text="🎯 重新定位", height=35, fg_color="#555555", command=self.app.edit_current_equip)
+        self.btn_edit_equip.grid(row=1, column=0, padx=5, pady=5, sticky="ew")
         
-        # 第二排：次要操作
-        self.btn_rename_equip = ctk.CTkButton(self.frame_equip_ops, text="✎ 重命名", width=120, height=35, fg_color="#FFA500", command=self.app.rename_current_equip)
-        self.btn_rename_equip.grid(row=1, column=0, padx=10, pady=10)
+        self.btn_rename_equip = ctk.CTkButton(self.frame_equip_ops, text="✎ 重命名", height=35, fg_color="#FFA500", command=self.app.rename_current_equip)
+        self.btn_rename_equip.grid(row=1, column=1, padx=5, pady=5, sticky="ew")
         
-        self.btn_delete_equip = ctk.CTkButton(self.frame_equip_ops, text="🗑 删除配置", width=120, height=35, fg_color="darkred", command=self.app.delete_current_equip)
-        self.btn_delete_equip.grid(row=1, column=1, padx=10, pady=10)
+        # 第3行：删除 (占满整行)
+        self.btn_delete_equip = ctk.CTkButton(self.frame_equip_ops, text="🗑 删除配置", height=35, fg_color="darkred", command=self.app.delete_current_equip)
+        self.btn_delete_equip.grid(row=2, column=0, columnspan=2, padx=5, pady=5, sticky="ew")
         
         # 底部说明
         text = "说明：\n1. 【新建】创建一个新的装备配置。\n2. 【重新定位】将重新录制坐标（支持游戏窗口移动）。\n3. 录制时请确保游戏窗口处于激活状态。"

@@ -365,7 +365,6 @@ class App(ctk.CTk):
             self.run_tab.combo_affix.set("")
             self.rule_tab.combo_affix_mgr.set("")
             self.current_rule_content = ""
-            self.rule_tab.lbl_rule_preview.configure(text="")
 
     def on_equip_change(self, choice):
         print(f"已选择装备: {choice}")
@@ -381,13 +380,6 @@ class App(ctk.CTk):
             self.current_affix_id = self.affix_id_map.get(choice)
             self.current_affix_source = self.affix_source_map.get(choice)
             
-            # 1. 更新预览 (原Tab3逻辑移动到这里)
-            preview = str(content)
-            if len(preview) > 50: preview = preview[:47] + "..."
-            try:
-                self.rule_tab.lbl_rule_preview.configure(text=preview)
-            except: pass
-
             # 2. 同步 UI (仅设置值，不触发回调防止死循环)
             if self.rule_tab.combo_affix_mgr.get() != choice:
                 self.rule_tab.combo_affix_mgr.set(choice)
