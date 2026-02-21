@@ -116,6 +116,11 @@ class App(ctk.CTk):
             keyboard.add_hotkey(self.hk_start, self._on_start_hotkey)
             keyboard.add_hotkey(self.hk_stop, self._on_stop_hotkey)
             
+            # 更新状态栏提示
+            try:
+                self.lbl_status.configure(text=f"就绪 (快捷键: {self.hk_start.upper()}开始 / {self.hk_stop.upper()}停止)")
+            except: pass
+
             print(f"全局快捷键已注册: 按 [{self.hk_start}] 开始, 按 [{self.hk_stop}] 停止")
         except Exception as e:
             print(f"快捷键注册失败 (可能是键名无效): {e}")
@@ -169,14 +174,15 @@ class App(ctk.CTk):
         self.lbl_log_title = ctk.CTkLabel(self.log_frame, text="运行日志", font=("Microsoft YaHei", 12))
         self.lbl_log_title.pack(anchor="w", padx=5, pady=2)
 
-        self.log_box = ctk.CTkTextbox(self.log_frame, font=("Consolas", 12), height=150)
+        self.log_box = ctk.CTkTextbox(self.log_frame, font=("Consolas", 12), height=150, state="disabled",
+                                      text_color="#DDDDDD", fg_color="#1E1E1E", border_width=1, border_color="#333333")
         self.log_box.pack(fill="both", expand=True, padx=5, pady=5)
         
         # 底部状态栏
         self.status_bar = ctk.CTkFrame(self, height=25)
         self.status_bar.grid(row=2, column=0, columnspan=2, sticky="ew", padx=10, pady=2)
         
-        self.lbl_status = ctk.CTkLabel(self.status_bar, text="就绪 (快捷键: END开始 / HOME停止)", text_color="gray", font=("Microsoft YaHei", 12))
+        self.lbl_status = ctk.CTkLabel(self.status_bar, text=f"就绪 (快捷键: {self.hk_start.upper()}开始 / {self.hk_stop.upper()}停止)", text_color="gray", font=("Microsoft YaHei", 12))
         self.lbl_status.pack(side="left", padx=10)
 
         # 重定向输出
@@ -282,13 +288,18 @@ class App(ctk.CTk):
 
     def _check_log_queue(self):
         """定期从队列读取日志更新到界面"""
-        try:
-            while True:
-                text = self.redirector.queue.get_nowait()
-                self.log_box.insert("end", text)
+        if not self.redirector.queue.empty():
+            self.log_box.configure(state="normal")
+            try:
+                while True:
+                    text = self.redirector.queue.get_nowait()
+                    self.log_box.insert("end", text)
                 self.log_box.see("end")
-        except queue.Empty:
-            pass
+            except queue.Empty:
+                pass
+            finally:
+                self.log_box.configure(state="disabled")
+        
         self.after(100, self._check_log_queue)
 
     def _load_data(self):
@@ -637,7 +648,7 @@ class App(ctk.CTk):
         self.running = True
         self.run_tab.btn_start.configure(state="disabled")
         self.run_tab.btn_stop.configure(state="normal")
-        self.lbl_status.configure(text="运行中... (按HOME停止)", text_color="green")
+        self.lbl_status.configure(text=f"运行中... (按 {self.hk_stop.upper()} 停止)", text_color="green")
         
         self.worker_thread = threading.Thread(target=self._run_washer_loop, daemon=True)
         self.worker_thread.start()
@@ -648,7 +659,7 @@ class App(ctk.CTk):
         self.running = False
         self.run_tab.btn_start.configure(state="normal")
         self.run_tab.btn_stop.configure(state="disabled")
-        self.lbl_status.configure(text="已停止", text_color="gray")
+        self.lbl_status.configure(text=f"已停止 (快捷键: {self.hk_start.upper()}开始 / {self.hk_stop.upper()}停止)", text_color="gray")
 
     def _run_washer_loop(self):
         print("=== 洗炼开始 ===")
@@ -664,7 +675,7 @@ class App(ctk.CTk):
     def _on_process_finish(self):
         self.run_tab.btn_start.configure(state="normal")
         self.run_tab.btn_stop.configure(state="disabled")
-        self.lbl_status.configure(text="已结束", text_color="gray")
+        self.lbl_status.configure(text=f"已结束 (快捷键: {self.hk_start.upper()}开始 / {self.hk_stop.upper()}停止)", text_color="gray")
 
 if __name__ == '__main__':
     app = App()
