@@ -28,51 +28,51 @@ class RunTab(ctk.CTkFrame):
         self.config_card = ctk.CTkFrame(self, corner_radius=15, width=400)
         self.config_card.grid(row=1, column=0, padx=40, pady=10)
         
-        # 让卡片内部两列分布合理
-        self.config_card.grid_columnconfigure(0, weight=1) # Label列
-        self.config_card.grid_columnconfigure(1, weight=2) # Input列
+        # 让卡片内部单列分布合理
+        self.config_card.grid_columnconfigure(0, weight=1) 
 
         # 1. 装备选择
+        # 改为垂直布局以适应更窄的空间
         self.lbl_equip = ctk.CTkLabel(
             self.config_card, 
             text="目标装备:", 
-            font=("Microsoft YaHei", 16)
+            font=("Microsoft YaHei", 14)
         )
-        self.lbl_equip.grid(row=0, column=0, padx=(30, 10), pady=25, sticky="e")
+        self.lbl_equip.grid(row=0, column=0, padx=20, pady=(20, 5), sticky="w")
 
         self.combo_equip = ctk.CTkComboBox(
             self.config_card, 
             state="readonly", 
-            width=220,
+            width=200,
             height=32,
             font=("Microsoft YaHei", 14),
             command=self.app.on_equip_change
         )
-        self.combo_equip.grid(row=0, column=1, padx=(0, 30), pady=25, sticky="w")
+        self.combo_equip.grid(row=1, column=0, padx=20, pady=(0, 20), sticky="ew")
         
         # 2. 规则选择
         self.lbl_rule = ctk.CTkLabel(
             self.config_card, 
             text="洗炼规则:", 
-            font=("Microsoft YaHei", 16)
+            font=("Microsoft YaHei", 14)
         )
-        self.lbl_rule.grid(row=1, column=0, padx=(30, 10), pady=(0, 25), sticky="e")
+        self.lbl_rule.grid(row=2, column=0, padx=20, pady=(0, 5), sticky="w")
 
         self.combo_affix = ctk.CTkComboBox(
             self.config_card, 
             state="readonly",
-            width=220,
+            width=200,
             height=32,
             font=("Microsoft YaHei", 14),
             command=self.app.on_affix_change
         )
-        self.combo_affix.grid(row=1, column=1, padx=(0, 30), pady=(0, 25), sticky="w")
+        self.combo_affix.grid(row=3, column=0, padx=20, pady=(0, 20), sticky="ew")
 
 
         # --- 操作按钮区域 ---
         # 按钮容器
         self.action_frame = ctk.CTkFrame(self, fg_color="transparent")
-        self.action_frame.grid(row=2, column=0, pady=40)
+        self.action_frame.grid(row=2, column=0, pady=20)
 
         # 开始按钮 - 绿色系 (GitHub Green 风格)，胶囊形状
         self.btn_start = ctk.CTkButton(
@@ -81,12 +81,12 @@ class RunTab(ctk.CTkFrame):
             command=self.app.start_washing, 
             fg_color="#2EA043",           
             hover_color="#238636", 
-            width=160, 
-            height=45, 
-            corner_radius=22,             
-            font=("Microsoft YaHei", 16, "bold")
+            width=140, 
+            height=40, 
+            corner_radius=20,             
+            font=("Microsoft YaHei", 15, "bold")
         )
-        self.btn_start.pack(side="left", padx=15)
+        self.btn_start.pack(side="left", padx=10)
 
         # 停止按钮 - 红色系 (GitHub Red 风格)，胶囊形状
         self.btn_stop = ctk.CTkButton(
@@ -96,12 +96,12 @@ class RunTab(ctk.CTkFrame):
             fg_color="#DA3633",           
             hover_color="#B62324", 
             state="disabled",
-            width=160, 
-            height=45, 
-            corner_radius=22,             
-            font=("Microsoft YaHei", 16, "bold")
+            width=140, 
+            height=40, 
+            corner_radius=20,             
+            font=("Microsoft YaHei", 15, "bold")
         )
-        self.btn_stop.pack(side="left", padx=15)
+        self.btn_stop.pack(side="left", padx=10)
 
         # --- 状态信息 ---
         self.lbl_status = ctk.CTkLabel(

@@ -85,8 +85,9 @@ class App(ctk.CTk):
         self.current_affix_source = None # 'FILE' or 'DB'
 
         # 布局配置
-        self.grid_columnconfigure(1, weight=1)
-        self.grid_rowconfigure(3, weight=1) # 日志区域自适应高度
+        self.grid_columnconfigure(0, weight=3) # 左侧功能区权重更大
+        self.grid_columnconfigure(1, weight=2) # 右侧日志区权重较小但足够
+        self.grid_rowconfigure(0, weight=1)    # 只有一行，占满高度
         
         # 从数据库加载快捷键配置
         self.hk_start = self.db.get("hotkey_start", "end")
@@ -138,11 +139,80 @@ class App(ctk.CTk):
             self.after(0, self.stop_washing)
 
     def _init_ui(self):
-        # 使用 TabView 进行主要布局
+        # 整体布局：左右分栏
+        self.grid_rowconfigure(0, weight=1)
+        self.grid_columnconfigure(0, weight=3, minsize=400) # 左侧功能区
+        self.grid_columnconfigure(1, weight=2, minsize=350) # 右侧日志区
+        
+        # --- 左侧：功能区 (TabView) ---
         self.tab_view = ctk.CTkTabview(self)
-        self.tab_view.grid(row=0, column=0, columnspan=2, padx=10, pady=5, sticky="nsew")
-        self.grid_rowconfigure(0, weight=1) # TabView 区域自适应高度
-        self.grid_rowconfigure(1, weight=0) # 状态栏高度固定
+        self.tab_view.grid(row=0, column=0, padx=(15, 5), pady=10, sticky="nsew")
+
+        # --- 右侧：日志区 (整合到一个 Frame 中) ---
+        self.log_container = ctk.CTkFrame(self, corner_radius=10) # 给个背景色或者边框
+        self.log_container.grid(row=0, column=1, padx=(5, 15), pady=10, sticky="nsew")
+        
+        # 右侧布局：头部标题 + 内容 + 底部状态
+        self.log_container.grid_rowconfigure(1, weight=1)
+        self.log_container.grid_columnconfigure(0, weight=1)
+
+        # 1. 日志标题栏
+        self.log_header_frame = ctk.CTkFrame(self.log_container, fg_color="transparent", height=30)
+        self.log_header_frame.grid(row=0, column=0, sticky="ew", padx=10, pady=(10, 5))
+
+        self.lbl_log_title = ctk.CTkLabel(
+            self.log_header_frame, 
+            text="📜 运行日志", 
+            font=("Microsoft YaHei", 14, "bold"),
+            text_color=("gray30", "gray80")
+        )
+        self.lbl_log_title.pack(side="left", padx=5)
+
+        # 锁定日志视口 Checkbox
+        self.log_lock_var = ctk.BooleanVar(value=False)
+        self.chk_lock_log = ctk.CTkSwitch(
+            self.log_header_frame, 
+            text="锁定滚动", 
+            variable=self.log_lock_var,
+            width=80, 
+            height=20, 
+            font=("Microsoft YaHei", 12)
+        )
+        self.chk_lock_log.pack(side="right", padx=5)
+
+        # 2. 日志内容框
+        self.log_box = ctk.CTkTextbox(
+            self.log_container, 
+            font=("Consolas", 12), 
+            state="disabled",
+            text_color="#EEEEEE", 
+            fg_color="#1E1E1E", 
+            border_width=0, 
+            corner_radius=6
+        )
+        self.log_box.grid(row=1, column=0, sticky="nsew", padx=10, pady=5)
+        
+        # 配置日志颜色标签 (需要访问底层 tkinter.Text 控件)
+        try:
+            self.log_box._textbox.tag_config("ERROR", foreground="#FF5555")   # 红色
+            self.log_box._textbox.tag_config("WARN", foreground="#FFB86C")    # 橙色
+            self.log_box._textbox.tag_config("INFO", foreground="#8BE9FD")    # 青色
+            self.log_box._textbox.tag_config("SUCCESS", foreground="#50FA7B") # 绿色
+            self.log_box._textbox.tag_config("DEBUG", foreground="#6272A4")   # 灰色
+        except Exception as e:
+            print(f"设置日志颜色失败: {e}")
+        
+        # 3. 底部简洁状态栏 (移入右侧 log_container 底部)
+        self.status_bar_frame = ctk.CTkFrame(self.log_container, fg_color="transparent", height=25)
+        self.status_bar_frame.grid(row=2, column=0, sticky="ew", padx=10, pady=(5, 10))
+        
+        self.lbl_status = ctk.CTkLabel(
+            self.status_bar_frame, 
+            text=f"就绪 ({self.hk_start.upper()} 开始 / {self.hk_stop.upper()} 停止)", 
+            text_color="gray", 
+            font=("Microsoft YaHei", 12)
+        )
+        self.lbl_status.pack(side="left") # 靠左对齐
 
         # 创建 Tabs
         self.tab_run_container = self.tab_view.add("运行控制")
@@ -166,34 +236,15 @@ class App(ctk.CTk):
         self.setting_tab = SettingTab(self.tab_setting_container, self)
         self.setting_tab.pack(fill="both", expand=True)
 
-        # 公共日志区域 (放在 TabView 下方)
-        self.log_frame = ctk.CTkFrame(self)
-        self.log_frame.grid(row=1, column=0, columnspan=2, padx=10, pady=5, sticky="nsew")
-        self.grid_rowconfigure(1, weight=1) # 增加日志区域权重
-
-        # 日志标题栏
-        self.log_header_frame = ctk.CTkFrame(self.log_frame, fg_color="transparent", height=30)
-        self.log_header_frame.pack(fill="x", padx=5, pady=2)
-
-        self.lbl_log_title = ctk.CTkLabel(self.log_header_frame, text="运行日志", font=("Microsoft YaHei", 12))
-        self.lbl_log_title.pack(side="left", padx=5)
-
-        # 锁定日志视口 Checkbox
-        self.log_lock_var = ctk.BooleanVar(value=False)
-        self.chk_lock_log = ctk.CTkCheckBox(self.log_header_frame, text="锁定视口", variable=self.log_lock_var,
-                                            width=80, height=20, font=("Microsoft YaHei", 11))
-        self.chk_lock_log.pack(side="right", padx=5)
-
-        self.log_box = ctk.CTkTextbox(self.log_frame, font=("Consolas", 12), height=150, state="disabled",
-                                      text_color="#DDDDDD", fg_color="#1E1E1E", border_width=1, border_color="#333333")
-        self.log_box.pack(fill="both", expand=True, padx=5, pady=5)
-        
-        # 底部状态栏
-        self.status_bar = ctk.CTkFrame(self, height=25)
-        self.status_bar.grid(row=2, column=0, columnspan=2, sticky="ew", padx=10, pady=2)
-        
-        self.lbl_status = ctk.CTkLabel(self.status_bar, text=f"就绪 (快捷键: {self.hk_start.upper()}开始 / {self.hk_stop.upper()}停止)", text_color="gray", font=("Microsoft YaHei", 12))
-        self.lbl_status.pack(side="left", padx=10)
+        # 配置日志颜色标签 (需要访问底层 tkinter.Text 控件)
+        try:
+            self.log_box._textbox.tag_config("ERROR", foreground="#FF5555")   # 红色
+            self.log_box._textbox.tag_config("WARN", foreground="#FFB86C")    # 橙色
+            self.log_box._textbox.tag_config("INFO", foreground="#8BE9FD")    # 青色
+            self.log_box._textbox.tag_config("SUCCESS", foreground="#50FA7B") # 绿色
+            self.log_box._textbox.tag_config("DEBUG", foreground="#6272A4")   # 灰色
+        except Exception as e:
+            print(f"设置日志颜色失败: {e}")
 
         # 重定向输出
         self.redirector = TextRedirector(self.log_box)
@@ -297,26 +348,67 @@ class App(ctk.CTk):
         self.on_affix_change(choice)
 
     def _check_log_queue(self):
-        """定期从队列读取日志更新到界面"""
-        if not self.redirector.queue.empty():
-            self.log_box.configure(state="normal")
-            try:
-                while True:
-                    text = self.redirector.queue.get_nowait()
-                    self.log_box.insert("end", text)
-            except queue.Empty:
-                pass
-            finally:
-                # 无论是否读完，只要是有新内容进来后，尝试滚动
+        """定期从队列读取日志更新到界面 (优化版)"""
+        try:
+            if not self.redirector.queue.empty():
+                self.log_box.configure(state="normal")
+                
+                # 获取底层Text控件
+                try:
+                    tb = self.log_box._textbox
+                except AttributeError:
+                    tb = self.log_box # 回退方案
+                
+                processed_count = 0
+                max_lines = 100 # 防止一次写入太多卡顿
+                
+                while processed_count < max_lines:
+                    try:
+                        text = self.redirector.queue.get_nowait()
+                    except queue.Empty:
+                        break
+                        
+                    lower_text = text.lower()
+                    tags = []
+                    
+                    if "错误" in text or "error" in lower_text or "fail" in lower_text:
+                        tags.append("ERROR")
+                    elif "警告" in text or "warn" in lower_text:
+                        tags.append("WARN")
+                    elif "成功" in text or "success" in lower_text or "完成" in text:
+                        tags.append("SUCCESS")
+                    elif "debug" in lower_text:
+                        tags.append("DEBUG")
+                    elif "info" in lower_text or "提示" in text:
+                        tags.append("INFO")
+                    
+                    try:
+                        # 插入前位置
+                        start_idx = tb.index("end-1c")
+                        tb.insert("end", text)
+                        # 插入后位置(不含最后的换行符)
+                        end_idx = tb.index("end-1c")
+                        
+                        if tags:
+                            for t in tags:
+                                tb.tag_add(t, start_idx, end_idx)
+                    except Exception:
+                        # 万一失败直接用普通insert
+                        try:
+                            self.log_box.insert("end", text)
+                        except: pass
+                        
+                    processed_count += 1
+                
+                # 滚动到底部
                 if not self.log_lock_var.get():
                     self.log_box.see("end")
-                    try:
-                        self.log_box.yview_moveto(1.0)
-                    except:
-                        pass
+                    
                 self.log_box.configure(state="disabled")
-        
-        self.after(100, self._check_log_queue)
+        except Exception as e:
+            print(f"日志队列处理异常: {e}")
+        finally: 
+            self.after(50, self._check_log_queue)
 
     def _load_data(self):
         """加载数据"""
