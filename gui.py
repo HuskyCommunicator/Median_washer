@@ -84,11 +84,6 @@ class App(ctk.CTk):
         self.current_affix_id = None   # 存储当前选择的规则ID (如果是DB类型)
         self.current_affix_source = None # 'FILE' or 'DB'
 
-        # 布局配置
-        self.grid_columnconfigure(0, weight=3) # 左侧功能区权重更大
-        self.grid_columnconfigure(1, weight=2) # 右侧日志区权重较小但足够
-        self.grid_rowconfigure(0, weight=1)    # 只有一行，占满高度
-        
         # 从数据库加载快捷键配置
         self.hk_start = self.db.get("hotkey_start", "end")
         self.hk_stop = self.db.get("hotkey_stop", "home")
@@ -140,17 +135,23 @@ class App(ctk.CTk):
 
     def _init_ui(self):
         # 整体布局：左右分栏
+        # 设置行权重，让内容垂直填满
         self.grid_rowconfigure(0, weight=1)
-        self.grid_columnconfigure(0, weight=3, minsize=400) # 左侧功能区
-        self.grid_columnconfigure(1, weight=2, minsize=350) # 右侧日志区
+        
+        # 核心修改：设置列权重比例为 3:2
+        # column 0 (左侧功能区): weight=3
+        # column 1 (右侧日志区): weight=2
+        # uniform="group1" 确保在同一组内的列宽严格按照 weight 分配比例
+        self.grid_columnconfigure(0, weight=3, uniform="group1") 
+        self.grid_columnconfigure(1, weight=2, uniform="group1") 
         
         # --- 左侧：功能区 (TabView) ---
         self.tab_view = ctk.CTkTabview(self)
-        self.tab_view.grid(row=0, column=0, padx=(15, 5), pady=10, sticky="nsew")
+        self.tab_view.grid(row=0, column=0, padx=(10, 5), pady=10, sticky="nsew")
 
         # --- 右侧：日志区 (整合到一个 Frame 中) ---
-        self.log_container = ctk.CTkFrame(self, corner_radius=10) # 给个背景色或者边框
-        self.log_container.grid(row=0, column=1, padx=(5, 15), pady=10, sticky="nsew")
+        self.log_container = ctk.CTkFrame(self, corner_radius=10) 
+        self.log_container.grid(row=0, column=1, padx=(5, 10), pady=10, sticky="nsew")
         
         # 右侧布局：头部标题 + 内容 + 底部状态
         self.log_container.grid_rowconfigure(1, weight=1)

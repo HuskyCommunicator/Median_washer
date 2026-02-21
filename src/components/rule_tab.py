@@ -71,7 +71,7 @@ class RuleTab(ctk.CTkFrame):
         # 编辑详情 (大按钮)
         self.btn_advanced = ctk.CTkButton(
             self.card_ops, 
-            text="📝 编辑规则详情 (JSON)", 
+            text="📝 编辑规则详情", 
             command=self.app.open_advanced_editor,
             fg_color="#1F6FEB",           # GitHub Blue
             hover_color="#1158C7",
