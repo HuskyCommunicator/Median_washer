@@ -43,7 +43,7 @@ class App(ctk.CTk):
         super().__init__()
 
         self.title("洗炼助手 Pro")
-        self.geometry("700x550")
+        self.geometry("800x600")
         
         # 数据库 & 洗炼核心
         self.db = SimpleDB()
@@ -657,6 +657,7 @@ class App(ctk.CTk):
         self.run_tab.btn_start.configure(state="disabled")
         self.run_tab.btn_stop.configure(state="normal")
         self.lbl_status.configure(text=f"运行中... (按 {self.hk_stop.upper()} 停止)", text_color="green")
+        self.run_tab.update_status(f"运行中... (按 {self.hk_stop.upper()} 停止)", is_running=True)
         
         self.worker_thread = threading.Thread(target=self._run_washer_loop, daemon=True)
         self.worker_thread.start()
@@ -668,6 +669,7 @@ class App(ctk.CTk):
         self.run_tab.btn_start.configure(state="normal")
         self.run_tab.btn_stop.configure(state="disabled")
         self.lbl_status.configure(text=f"已停止 (快捷键: {self.hk_start.upper()}开始 / {self.hk_stop.upper()}停止)", text_color="gray")
+        self.run_tab.update_status("已手动停止", is_running=False)
 
     def _run_washer_loop(self):
         print("=== 洗炼开始 ===")
@@ -683,7 +685,10 @@ class App(ctk.CTk):
     def _on_process_finish(self):
         self.run_tab.btn_start.configure(state="normal")
         self.run_tab.btn_stop.configure(state="disabled")
-        self.lbl_status.configure(text=f"已结束 (快捷键: {self.hk_start.upper()}开始 / {self.hk_stop.upper()}停止)", text_color="gray")
+
+        status_text = f"已结束 (快捷键: {self.hk_start.upper()}开始 / {self.hk_stop.upper()}停止)"
+        self.lbl_status.configure(text=status_text, text_color="gray")
+        self.run_tab.update_status("已结束", is_running=False)
 
 if __name__ == '__main__':
     app = App()
